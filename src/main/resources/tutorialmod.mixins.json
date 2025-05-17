@@ -1,0 +1,32 @@
+{
+  "required": true,
+  "package": "com.elfoteo.tutorialmod.mixins",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "NanosuitPowerJump"
+  ],
+  "client": [
+    "BlockRenderDispatcherMixin",
+    "ClientLevelMixin",
+    "CompositeRenderTypeMixin",
+    "EmptyTextureStateShardMixin",
+    "FogRendererlMixin",
+    "HumanoidArmorLayerMixin",
+    "ICompositeStateAccessor",
+    "ICompositeStateBuilderAccessor",
+    "LevelRendererlMixin",
+    "LiquidBlockRenderMixin",
+    "ModelBlockRenderMixin",
+    "ModelRenderMixin",
+    "NanosuitLivingEntityRenderer",
+    "NanosuitNoParticles",
+    "NanosuitNoShadow",
+    "NanosuitPlayerRenderer",
+    "NanosuitVisorLivingRenderer",
+    "layer.InHandRendererMixin",
+    "layer.ItemInHandLayerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
