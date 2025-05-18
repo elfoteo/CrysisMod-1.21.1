@@ -1,8 +1,12 @@
 #version 150
 
 uniform sampler2D Sampler0;
+uniform vec4 ColorModulator;
+uniform float u_Heat;
 
-in float distanceFromCamera;
+in float cameraDistance;
+in vec4 vertexColor;
+in vec2 texCoord0;
 
 out vec4 fragColor;
 
@@ -17,17 +21,43 @@ vec3 heatColor(float t) {
     return vec3(0.0, 0.0, 0.254);
 }
 
+// Sample surrounding texels to simulate heat diffusion
+float sampleHeat(vec2 coord, float offset, float baseDist) {
+    float acc = 0.0;
+    float count = 0.0;
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            vec2 offsetCoord = coord + vec2(x, y) * offset;
+            vec4 tex = texture(Sampler0, offsetCoord);
+            if (tex.a > 0.1) {
+                // Estimate pseudo heat from brightness & alpha
+                float brightness = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+                acc += brightness;
+                count += 1.0;
+            }
+        }
+    }
+    return (count > 0.0) ? acc / count : 0.0;
+}
+
 void main() {
-    float fadeStart = 15.0;
-    float fadeEnd   = 30.0;
+    vec4 src = texture(Sampler0, texCoord0) * vertexColor * ColorModulator;
 
-    float fadeT = clamp((distanceFromCamera - fadeStart) / (fadeEnd - fadeStart), 0.0, 1.0);
-    float normalizedHeat = clamp(distanceFromCamera / fadeEnd, 0.0, 1.0);
+    if (src.a < 0.1) discard;
 
-    vec3 color = heatColor(normalizedHeat);
-    float alpha = 1.0 - fadeT;
+    const float fadeStart = 15.0;
+    const float fadeEnd   = 30.0;
+    float fadeT = clamp((cameraDistance - fadeStart) / (fadeEnd - fadeStart), 0.0, 1.0);
 
-    if (alpha <= 0.01) discard;
+    // Heat diffusion
+    float baseHeat = clamp(cameraDistance / fadeEnd, 0.0, 1.0) - u_Heat;
+    float surroundingHeat = sampleHeat(texCoord0, 1.0 / 512.0, cameraDistance); // Adjust resolution
+    float blendedHeat = mix(baseHeat, surroundingHeat, 0.5);
 
-    fragColor = vec4(color, alpha);
+    vec3 hc = heatColor(clamp(blendedHeat, 0.0, 1.0));
+    float a = src.a * (1.0 - fadeT);
+
+    if (a <= 0.01) discard;
+
+    fragColor = vec4(hc, a);
 }

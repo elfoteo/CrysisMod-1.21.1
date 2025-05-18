@@ -1,4 +1,4 @@
-package com.elfoteo.tutorialmod.mixins;
+package com.elfoteo.tutorialmod.mixins.accessors;
 
 import com.elfoteo.tutorialmod.util.ICompositeRenderType;
 import net.minecraft.client.renderer.RenderType;

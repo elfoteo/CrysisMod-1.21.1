@@ -8,12 +8,8 @@
   "client": [
     "BlockRenderDispatcherMixin",
     "ClientLevelMixin",
-    "CompositeRenderTypeMixin",
     "EmptyTextureStateShardMixin",
-    "FogRendererlMixin",
-    "HumanoidArmorLayerMixin",
-    "ICompositeStateAccessor",
-    "ICompositeStateBuilderAccessor",
+    "FogRendererMixin",
     "LevelRendererlMixin",
     "LiquidBlockRenderMixin",
     "ModelBlockRenderMixin",
@@ -22,9 +18,15 @@
     "NanosuitNoParticles",
     "NanosuitNoShadow",
     "NanosuitPlayerRenderer",
-    "NanosuitVisorLivingRenderer",
-    "layer.InHandRendererMixin",
-    "layer.ItemInHandLayerMixin"
+    "RenderTypeMixin",
+    "accessors.CompositeRenderTypeMixin",
+    "accessors.ICompositeStateAccessor",
+    "accessors.ICompositeStateBuilderAccessor",
+    "layer.HumanoidArmorLayerMixin",
+    "layer.ItemInHandLayerMixin",
+    "layer.RenderLayerMixin",
+    "layer.SpinAttackEffectLayerMixin",
+    "particles.ParticleEngineMixin"
   ],
   "injectors": {
     "defaultRequire": 1

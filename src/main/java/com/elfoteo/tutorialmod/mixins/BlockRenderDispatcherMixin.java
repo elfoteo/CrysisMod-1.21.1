@@ -2,14 +2,9 @@ package com.elfoteo.tutorialmod.mixins;
 
 import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
 import com.elfoteo.tutorialmod.util.InfraredShader;
-import com.elfoteo.tutorialmod.util.SetSectionRenderDispatcher;
 import com.elfoteo.tutorialmod.util.SuitModes;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.Camera;
 import net.minecraft.client.color.block.BlockColors;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.FogRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
@@ -17,6 +12,7 @@ import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockAndTintGetter;
@@ -44,9 +40,9 @@ public abstract class BlockRenderDispatcherMixin {
     @Shadow public abstract BakedModel getBlockModel(BlockState state);
 
     @Inject(method = "renderSingleBlock(Lnet/minecraft/world/level/block/state/BlockState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IILnet/neoforged/neoforge/client/model/data/ModelData;Lnet/minecraft/client/renderer/RenderType;)V", at = @At("HEAD"), cancellable = true)
-    private void da(BlockState state, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay, ModelData modelData, RenderType renderType, CallbackInfo ci) {
+    private void renderSingleBlock(BlockState state, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay, ModelData modelData, RenderType renderType, CallbackInfo ci) {
         if (Nanosuit.currentClientMode != SuitModes.VISOR.get()) return;
-        renderType = InfraredShader.INFRARED_RENDER_TYPE;
+        renderType = InfraredShader.INFRARED_SOLID_RENDERTYPE;
         RenderShape rendershape = state.getRenderShape();
         if (rendershape != RenderShape.INVISIBLE) {
             switch (rendershape) {

@@ -1,14 +1,12 @@
-package com.elfoteo.tutorialmod.mixins;
+package com.elfoteo.tutorialmod.mixins.layer;
 
-import com.elfoteo.tutorialmod.util.CustomColoredMultiBufferSource;
-import com.elfoteo.tutorialmod.util.InfraredShader;
-import com.elfoteo.tutorialmod.util.RenderState;
+import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
+import com.elfoteo.tutorialmod.util.*;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -34,27 +32,16 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
             int dyeColor,
             ResourceLocation textureLocation,
             CallbackInfo ci) {
-        if (RenderState.isRenderingtranslucent) {
-            // Custom RGBA values
-            int r = 200;
-            int g = 200;
-            int b = 200;
-            int alpha = (int) (0.5f * 255);
-
-            MultiBufferSource translucentBuffer = new CustomColoredMultiBufferSource(buffer, r, g, b, alpha,
-                    textureLocation);
-
-            RenderState.isRenderingtranslucent = false;
-            // Call the shadowed private method with translucent buffer
-            renderModel(poseStack, translucentBuffer, packedLight, model, dyeColor, textureLocation);
-            RenderState.isRenderingtranslucent = true;
+        if (RenderState.currentlyRenderingPlayer != null && SuitUtils.isWearingFullNanosuit(RenderState.currentlyRenderingPlayer)) {
             ci.cancel(); // Prevent original method from executing
             return;
         }
-        //VertexConsumer vertexconsumer = buffer.getBuffer(RenderType.armorCutoutNoCull(textureLocation));
-        //model.renderToBuffer(poseStack, vertexconsumer, packedLight, OverlayTexture.NO_OVERLAY, dyeColor);
-        VertexConsumer vertexconsumer = buffer.getBuffer(InfraredShader.infraredArmorCutoutNoCull(textureLocation));
-        model.renderToBuffer(poseStack, vertexconsumer, packedLight, OverlayTexture.NO_OVERLAY, dyeColor);
-        ci.cancel();
+        if (Nanosuit.currentClientMode == SuitModes.VISOR.get()){
+            //VertexConsumer vertexconsumer = buffer.getBuffer(RenderType.armorCutoutNoCull(textureLocation));
+            //model.renderToBuffer(poseStack, vertexconsumer, packedLight, OverlayTexture.NO_OVERLAY, dyeColor);
+            VertexConsumer vertexconsumer = buffer.getBuffer(InfraredShader.infraredArmorCutoutNoCull(textureLocation));
+            model.renderToBuffer(poseStack, vertexconsumer, packedLight, OverlayTexture.NO_OVERLAY, dyeColor);
+            ci.cancel();
+        }
     }
 }

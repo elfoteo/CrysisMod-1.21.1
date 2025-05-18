@@ -1,14 +1,12 @@
-package com.elfoteo.tutorialmod.mixins;
+package com.elfoteo.tutorialmod.mixins.accessors;
 
 import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType.OutlineProperty;
-import com.google.common.collect.ImmutableList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(targets = "net.minecraft.client.renderer.RenderType$CompositeState")
-public interface ICompositeStateAccessor {
-    
+@Mixin(targets = "net.minecraft.client.renderer.RenderType$CompositeState$CompositeStateBuilder")
+public interface ICompositeStateBuilderAccessor {
+
     @Accessor("textureState")
     RenderStateShard.EmptyTextureStateShard getTextureState();
 
@@ -47,10 +45,4 @@ public interface ICompositeStateAccessor {
 
     @Accessor("colorLogicState")
     RenderStateShard.ColorLogicStateShard getColorLogicState();
-
-    @Accessor("outlineProperty")
-    OutlineProperty getOutlineProperty();
-
-    @Accessor("states")
-    ImmutableList<RenderStateShard> getStates();
 }

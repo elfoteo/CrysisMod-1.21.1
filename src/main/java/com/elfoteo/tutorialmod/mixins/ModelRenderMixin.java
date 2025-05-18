@@ -26,7 +26,7 @@ public abstract class ModelRenderMixin {
 
         // Create our own buffer using RedShader
         MultiBufferSource.BufferSource buffer = MultiBufferSource.immediate(new ByteBufferBuilder(16384));
-        VertexConsumer customConsumer = buffer.getBuffer(InfraredShader.INFRARED_RENDER_TYPE);
+        VertexConsumer customConsumer = buffer.getBuffer(InfraredShader.INFRARED_SOLID_RENDERTYPE);
 
         // Call the abstract version (you can only do this if you’re extending your own subclass or know the model instance)
         // Use a dummy color value (-1 means no color override)

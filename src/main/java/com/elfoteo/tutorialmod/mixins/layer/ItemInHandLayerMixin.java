@@ -2,7 +2,6 @@ package com.elfoteo.tutorialmod.mixins.layer;
 
 import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
 import com.elfoteo.tutorialmod.util.InfraredShader;
-import com.elfoteo.tutorialmod.util.ItemRenderState;
 import com.elfoteo.tutorialmod.util.SuitModes;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -13,6 +12,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.HalfTransparentBlock;
@@ -92,8 +92,13 @@ public abstract class ItemInHandLayerMixin {
 
                 for(BakedModel model : p_model.getRenderPasses(itemStack, flag1)) {
                     for(RenderType rendertype : model.getRenderTypes(itemStack, flag1)) {
-                        if ((ItemRenderState.rendering3DItem || displayContext == ItemDisplayContext.GROUND) && Nanosuit.currentClientMode == SuitModes.VISOR.get()){
-                            rendertype = InfraredShader.INFRARED_RENDER_TYPE;
+                        if ((
+                                displayContext != ItemDisplayContext.GUI
+                                && displayContext != ItemDisplayContext.FIRST_PERSON_LEFT_HAND
+                                && displayContext != ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
+                            ) && Nanosuit.currentClientMode == SuitModes.VISOR.get()){
+                            rendertype = InfraredShader.infraredEntityTranslucentCull_for_items(InventoryMenu.BLOCK_ATLAS);
+                            //rendertype = RenderType.entityTranslucentCull(InventoryMenu.BLOCK_ATLAS);
                         }
 
                         VertexConsumer vertexconsumer;

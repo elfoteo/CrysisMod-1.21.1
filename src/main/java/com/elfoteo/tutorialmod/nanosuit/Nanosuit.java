@@ -173,7 +173,7 @@ public class Nanosuit {
         if (mode == SuitModes.CLOAK.ordinal() || mode == SuitModes.VISOR.ordinal()) {
             if (energy > 0) {
                 if (mode == SuitModes.CLOAK.ordinal()) {
-                    player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 2, 0, true, false));
+                    //player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 2, 0, true, false));
                     float drainTick = getCloakDrainRate(player) / 20f;
                     newEnergy = Math.max(0, energy - drainTick);
                 } else {
