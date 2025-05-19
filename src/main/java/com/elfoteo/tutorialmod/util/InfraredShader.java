@@ -1,5 +1,6 @@
 package com.elfoteo.tutorialmod.util;
 
+import com.elfoteo.tutorialmod.TutorialMod;
 import com.elfoteo.tutorialmod.mixins.accessors.ICompositeStateAccessor;
 import com.mojang.blaze3d.shaders.AbstractUniform;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -16,6 +17,7 @@ import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.RenderType.CompositeState;
 import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.resources.ResourceLocation;
@@ -25,6 +27,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
+import org.lwjgl.opengl.GL11;
 
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -124,17 +127,18 @@ public class InfraredShader {
     public static ShaderInstance INFRARED_ENTITY_SHADER;
     public static ShaderInstance INFRARED_UNDEAD_SHADER;
     public static ShaderInstance INFRARED_ARMOR_SHADER;
+    public static ShaderInstance NANOSUIT_OVERLAY_SHADER;
     public static ShaderInstance INFRARED_ITEM_SHADER;
     public static ShaderInstance INFRARED_PARTICLE_SHADER;
     public static RenderStateShard.ShaderStateShard INFRARED_SOLID_SHADER_SHARD;
-    public static RenderStateShard.ShaderStateShard INFRARED_UNDEAD_SHADER_SHARD;
-    public static RenderStateShard.ShaderStateShard INFRARED_ENTITY_SHADER_SHARD;
     public static RenderStateShard.ShaderStateShard INFRARED_ARMOR_SHADER_SHARD;
+    public static RenderStateShard.ShaderStateShard NANOSUIT_OVERLAY_SHADER_SHARD;
     public static RenderStateShard.ShaderStateShard INFRARED_ITEM_SHADER_SHARD;
 
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_ENTITY_GENERIC;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_UNDEAD_GENERIC;
     private static Function<ResourceLocation, RenderType> ARMOR_INFRARED_RENDER_TYPE;
+    private static Function<ResourceLocation, RenderType> NANOSUIT_OVERLAY_RENDER_TYPE;
     private static Function<ResourceLocation, RenderType> INFRARED_ENTITY_TRANSLUCENT_CULL_FOR_ITEMS;
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_CUTOUT_NO_CULL;
 
@@ -161,6 +165,10 @@ public class InfraredShader {
                     ResourceLocation.fromNamespaceAndPath(com.elfoteo.tutorialmod.TutorialMod.MOD_ID, "infrared_armor_layer"),
                     DefaultVertexFormat.NEW_ENTITY);
             INFRARED_ARMOR_SHADER_SHARD = new RenderStateShard.ShaderStateShard(() -> INFRARED_ARMOR_SHADER);
+
+            NANOSUIT_OVERLAY_SHADER = new ShaderInstance(event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(com.elfoteo.tutorialmod.TutorialMod.MOD_ID, "nanosuit_overlay_layer"),
+                    DefaultVertexFormat.NEW_ENTITY);
 
             INFRARED_ITEM_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(com.elfoteo.tutorialmod.TutorialMod.MOD_ID, "infrared_item"),
@@ -238,7 +246,8 @@ public class InfraredShader {
                 return RenderType.create("infrared_entity_cutout_no_cull", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false, rendertype$compositestate);
             });
 
-            ARMOR_INFRARED_RENDER_TYPE = Util.memoize((textureLocation) -> createInfraredArmorCutoutNoCull("armor_infrared_render_type", textureLocation, false));
+            ARMOR_INFRARED_RENDER_TYPE = Util.memoize((textureLocation) -> createInfraredArmorCutoutNoCull("armor_infrared_render_type", textureLocation));
+            NANOSUIT_OVERLAY_RENDER_TYPE = Util.memoize((textureLocation) -> createNanosuitOverlay("nanosuit_overlay_render_type", textureLocation));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -268,7 +277,11 @@ public class InfraredShader {
         return ARMOR_INFRARED_RENDER_TYPE.apply(location);
     }
 
-    private static CompositeRenderType createInfraredArmorCutoutNoCull(String name, ResourceLocation id, boolean equalDepthTest) {
+    public static RenderType nanosuitOverlay(ResourceLocation location) {
+        return NANOSUIT_OVERLAY_RENDER_TYPE.apply(location);
+    }
+
+    private static CompositeRenderType createInfraredArmorCutoutNoCull(String name, ResourceLocation id) {
         CompositeState compositestate = RenderType.CompositeState.builder()
                 .setShaderState(INFRARED_ARMOR_SHADER_SHARD)
                 .setTextureState(new RenderStateShard.TextureStateShard(id, false, false))
@@ -281,6 +294,20 @@ public class InfraredShader {
                 .createCompositeState(true);
 
         return new CompositeRenderType(name, DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false, compositestate);
+    }
+
+    private static CompositeRenderType createNanosuitOverlay(String name, ResourceLocation id) {
+        boolean equalDepthTest = false;
+        CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
+                .setShaderState(new RenderStateShard.ShaderStateShard(() -> NANOSUIT_OVERLAY_SHADER))
+                .setTextureState(new RenderStateShard.TextureStateShard(id, false, false))
+                .setTransparencyState(RenderType.NO_TRANSPARENCY)
+                .setCullState(RenderType.NO_CULL)
+                .setLightmapState(RenderType.LIGHTMAP)
+                .setOverlayState(RenderType.OVERLAY)
+                .setLayeringState(RenderType.VIEW_OFFSET_Z_LAYERING)
+                .setDepthTestState(equalDepthTest ? RenderType.EQUAL_DEPTH_TEST : RenderType.LEQUAL_DEPTH_TEST).createCompositeState(true);
+        return new CompositeRenderType(name, DefaultVertexFormat.NEW_ENTITY, Mode.QUADS, 1536, true, false, rendertype$compositestate);
     }
 
     @OnlyIn(Dist.CLIENT)
