@@ -1,6 +1,8 @@
 package com.elfoteo.tutorialmod.mixins;
 
+import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
 import com.elfoteo.tutorialmod.util.InfraredShader;
+import com.elfoteo.tutorialmod.util.SuitModes;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
@@ -16,7 +18,7 @@ public abstract class RenderTypeMixin {
 
     @Inject(method = "entityCutout", at=@At("HEAD"), cancellable = true)
     private static void entityCutout(ResourceLocation location, CallbackInfoReturnable<RenderType> cir) {
-        if (InfraredShader.INFRARED_ENTITY_CUTOUT_NO_CULL != null)
+        if (InfraredShader.INFRARED_ENTITY_CUTOUT_NO_CULL != null && Nanosuit.currentClientMode == SuitModes.VISOR.get())
             cir.setReturnValue(InfraredShader.infraredEntityCutoutNoCull(location));
     }
 }

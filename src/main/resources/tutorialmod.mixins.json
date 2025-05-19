@@ -3,7 +3,6 @@
   "package": "com.elfoteo.tutorialmod.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "NanosuitPowerJump"
   ],
   "client": [
     "BlockRenderDispatcherMixin",
@@ -25,7 +24,6 @@
     "layer.HumanoidArmorLayerMixin",
     "layer.ItemInHandLayerMixin",
     "layer.RenderLayerMixin",
-    "layer.SpinAttackEffectLayerMixin",
     "particles.ParticleEngineMixin"
   ],
   "injectors": {

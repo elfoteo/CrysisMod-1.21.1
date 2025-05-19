@@ -3,7 +3,7 @@ package com.elfoteo.tutorialmod.util;
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
 import com.elfoteo.tutorialmod.network.custom.ArmorInfoPacket;
 import com.elfoteo.tutorialmod.item.*;
-import com.elfoteo.tutorialmod.gui.EnergyBar;
+import com.elfoteo.tutorialmod.gui.NanosuitOverlay;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -54,7 +54,7 @@ public class SuitUtils {
 
             return true;
         }
-        EnergyBar.startRedBlink();
+        NanosuitOverlay.startRedBlink();
         return false;
     }
 

@@ -59,6 +59,7 @@ public abstract class NanosuitPlayerRenderer {
     private void resetRenderState(AbstractClientPlayer entity, float entityYaw, float partialTicks,
                                   PoseStack poseStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
         RenderState.isRenderingMainPlayer = false;
+        RenderState.currentlyRenderingPlayer = null;
     }
 
     @Inject(method = "getTextureLocation(Lnet/minecraft/client/player/AbstractClientPlayer;)Lnet/minecraft/resources/ResourceLocation;", at=@At("HEAD"), cancellable = true)
