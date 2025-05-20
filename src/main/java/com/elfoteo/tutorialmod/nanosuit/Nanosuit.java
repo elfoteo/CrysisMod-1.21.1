@@ -1,6 +1,5 @@
 package com.elfoteo.tutorialmod.nanosuit;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -10,21 +9,20 @@ import com.elfoteo.tutorialmod.attachments.ModAttachments;
 import com.elfoteo.tutorialmod.keybindings.ModKeyBindings;
 import com.elfoteo.tutorialmod.network.custom.SuitModePacket;
 import com.elfoteo.tutorialmod.network.custom.ArmorInfoPacket;
-import com.elfoteo.tutorialmod.util.SetSectionRenderDispatcher;
 import com.elfoteo.tutorialmod.util.SuitModes;
 import com.elfoteo.tutorialmod.util.SuitUtils;
 
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.Util;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -38,8 +36,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
 @EventBusSubscriber(modid = TutorialMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public class Nanosuit {
 
-    public static int currentClientMode = SuitModes.ARMOR.ordinal();
-    public static int previousClientMode = SuitModes.ARMOR.ordinal();
+    // Default to NOT_EQUIPPED
+    public static int currentClientMode = SuitModes.NOT_EQUIPPED.get();
+    public static int previousClientMode = SuitModes.ARMOR.get();
 
     private static final float CLOAK_DRAIN_STILL   = 1.0f;
     private static final float CLOAK_DRAIN_MOVING  = 5.0f;
@@ -57,9 +56,11 @@ public class Nanosuit {
         Player player = Minecraft.getInstance().player;
         if (player == null) return;
 
-        // If not wearing full nanosuit, force armor mode
+        // If not wearing full nanosuit, force NOT_EQUIPPED
         if (!SuitUtils.isWearingFullNanosuit(player)) {
-            setClientMode(SuitModes.ARMOR.ordinal(), player);
+            if (currentClientMode != SuitModes.NOT_EQUIPPED.get()) {
+                setClientMode(SuitModes.NOT_EQUIPPED.get(), player);
+            }
             return;
         }
 
@@ -67,35 +68,35 @@ public class Nanosuit {
         int mode = currentClientMode;
         int target = mode;
 
-        // Prevent re-entry if no energy
-        if ((mode == SuitModes.CLOAK.ordinal() || mode == SuitModes.VISOR.ordinal()) && energy <= 0f) {
-            target = SuitModes.ARMOR.ordinal();
+        // If no energy while in cloak/visor, switch back to ARMOR
+        if ((mode == SuitModes.CLOAK.get() || mode == SuitModes.VISOR.get()) && energy <= 0f) {
+            target = SuitModes.ARMOR.get();
         } else {
             // Hold cloak key to enter
             if (ModKeyBindings.CLOAK_KEY.isDown()) {
-                if (energy > 0f && mode != SuitModes.CLOAK.ordinal()) {
-                    target = SuitModes.CLOAK.ordinal();
+                if (energy > 0f && mode != SuitModes.CLOAK.get()) {
+                    target = SuitModes.CLOAK.get();
                 }
-            } else if (mode == SuitModes.CLOAK.ordinal()) {
+            } else if (mode == SuitModes.CLOAK.get()) {
                 // release cloak
-                target = SuitModes.ARMOR.ordinal();
+                target = SuitModes.ARMOR.get();
             }
 
             // Hold visor key to enter
             if (ModKeyBindings.VISOR_KEY.isDown()) {
-                if (energy > 0f && mode != SuitModes.VISOR.ordinal()) {
+                if (energy > 0f && mode != SuitModes.VISOR.get()) {
                     previousClientMode = mode;
-                    target = SuitModes.VISOR.ordinal();
+                    target = SuitModes.VISOR.get();
                     reloadClientLighting();
                 }
-            } else if (mode == SuitModes.VISOR.ordinal()) {
+            } else if (mode == SuitModes.VISOR.get()) {
                 // release visor
                 target = previousClientMode;
                 reloadClientLighting();
             }
         }
 
-        // Sync client/server if changed
+        // Sync if changed
         if (target != mode) {
             setClientMode(target, player);
         }
@@ -106,7 +107,6 @@ public class Nanosuit {
         currentClientMode = mode;
         player.setData(ModAttachments.SUIT_MODE, mode);
         PacketDistributor.sendToServer(new SuitModePacket(player.getId(), mode));
-        // ensure lighting update on mode changes that affect visuals
         if (mode == SuitModes.VISOR.get()) {
             reloadClientLighting();
         }
@@ -126,9 +126,14 @@ public class Nanosuit {
         Player player = event.getEntity();
         if (player.level().isClientSide()) return;
 
-        // Ensure armor if no suit
+        // If not wearing full nanosuit, force NOT_EQUIPPED
         if (!SuitUtils.isWearingFullNanosuit(player)) {
-            player.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.ordinal());
+            if (player.getData(ModAttachments.SUIT_MODE) != SuitModes.NOT_EQUIPPED.get()) {
+                player.setData(ModAttachments.SUIT_MODE, SuitModes.NOT_EQUIPPED.get());
+                // Inform client
+                PacketDistributor.sendToPlayer((ServerPlayer) player,
+                        new SuitModePacket(player.getId(), SuitModes.NOT_EQUIPPED.get()));
+            }
             return;
         }
 
@@ -138,17 +143,17 @@ public class Nanosuit {
         float newEnergy = energy;
         int newMode = mode;
 
-        if (mode == SuitModes.CLOAK.ordinal() || mode == SuitModes.VISOR.ordinal()) {
-            float drain = (mode == SuitModes.CLOAK.ordinal() ? getCloakDrainRate(player) : VISOR_DRAIN_RATE) / 20f;
+        if (mode == SuitModes.CLOAK.get() || mode == SuitModes.VISOR.get()) {
+            float drain = (mode == SuitModes.CLOAK.get() ? getCloakDrainRate(player) : VISOR_DRAIN_RATE) / 20f;
             newEnergy = Math.max(0f, energy - drain);
             player.setData(ModAttachments.ENERGY, newEnergy);
 
-            if (mode == SuitModes.CLOAK.ordinal()) {
+            if (mode == SuitModes.CLOAK.get()) {
                 player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 5, 0, true, false));
             }
 
             if (newEnergy <= 0f) {
-                newMode = SuitModes.ARMOR.ordinal();
+                newMode = SuitModes.ARMOR.get();
                 player.setData(ModAttachments.SUIT_MODE, newMode);
             }
         }
@@ -156,18 +161,17 @@ public class Nanosuit {
         previousPositions.put(player.getUUID(), player.position());
 
         if (mode != newMode || energy != newEnergy) {
-            // Inform client: mode then stats
+            // Send mode update
             PacketDistributor.sendToPlayer((ServerPlayer) player,
-                    new SuitModePacket(player.getId(), newMode)
-            );
+                    new SuitModePacket(player.getId(), newMode));
+            // Send energy + armor info update
             PacketDistributor.sendToPlayer((ServerPlayer) player,
                     new ArmorInfoPacket(
                             newEnergy,
                             maxEnergy,
                             player.getData(ModAttachments.MAX_ENERGY_REGEN),
                             newMode
-                    )
-            );
+                    ));
         }
     }
 
@@ -189,21 +193,22 @@ public class Nanosuit {
     public static void onLivingHurt(LivingIncomingDamageEvent event) {
         LivingEntity entity = event.getEntity();
         if (!(entity instanceof Player p) || p.level().isClientSide()) return;
+        if (currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
 
         int mode = p.getData(ModAttachments.SUIT_MODE);
-        if (mode == SuitModes.CLOAK.ordinal()) {
+        if (mode == SuitModes.CLOAK.get()) {
             // break cloak
-            p.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.ordinal());
+            p.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
             p.setData(ModAttachments.ENERGY, 0f);
             PacketDistributor.sendToPlayer((ServerPlayer) p,
-                    new SuitModePacket(p.getId(), SuitModes.ARMOR.ordinal())
-            );
+                    new SuitModePacket(p.getId(), SuitModes.ARMOR.get()));
         }
         event.setAmount(SuitUtils.absorbDamage(p, event.getAmount()));
     }
 
     @SubscribeEvent
     public static void onLivingFall(LivingFallEvent event) {
+        if (currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
         LivingEntity entity = event.getEntity();
         if (entity instanceof Player p && !p.level().isClientSide()) {
             if (SuitUtils.absorbFallDamage(p, event.getDistance() * event.getDamageMultiplier())) {

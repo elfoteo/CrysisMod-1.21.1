@@ -1,10 +1,8 @@
-package com.elfoteo.tutorialmod.mixins;
+package com.elfoteo.tutorialmod.mixins.nanosuit;
 
-import com.elfoteo.tutorialmod.effect.ModEffects;
 import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.world.entity.player.Player;

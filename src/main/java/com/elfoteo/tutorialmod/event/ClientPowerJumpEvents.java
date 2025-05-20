@@ -1,6 +1,8 @@
 package com.elfoteo.tutorialmod.event;
 
 import com.elfoteo.tutorialmod.TutorialMod;
+import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
+import com.elfoteo.tutorialmod.util.SuitModes;
 import com.elfoteo.tutorialmod.util.SuitUtils;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
@@ -36,6 +38,7 @@ public class ClientPowerJumpEvents {
 
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
+        if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
         Player player = event.getEntity();
         if (player != Minecraft.getInstance().player) return;
         float charge = getCurrentJumpCharge(player);
@@ -50,6 +53,7 @@ public class ClientPowerJumpEvents {
 
     @SubscribeEvent
     public static void onLivingJump(LivingEvent.LivingJumpEvent event) {
+        if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
         if (!(event.getEntity() instanceof Player player)) return;
         if (player != Minecraft.getInstance().player || !player.isCrouching()) return;
         float charge = getCurrentJumpCharge(player);
@@ -123,6 +127,7 @@ public class ClientPowerJumpEvents {
     @SubscribeEvent
     public static void renderWorld(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
+        if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
 
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;

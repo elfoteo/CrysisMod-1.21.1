@@ -1,4 +1,4 @@
-package com.elfoteo.tutorialmod.mixins;
+package com.elfoteo.tutorialmod.mixins.nanosuit;
 
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
 import com.elfoteo.tutorialmod.nanosuit.Nanosuit;

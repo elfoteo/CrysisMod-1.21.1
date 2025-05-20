@@ -1,9 +1,8 @@
-package com.elfoteo.tutorialmod.mixins;
+package com.elfoteo.tutorialmod.mixins.nanosuit;
 
 import com.elfoteo.tutorialmod.TutorialMod;
 import com.elfoteo.tutorialmod.util.*;
 import com.elfoteo.tutorialmod.attachments.*;
-import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -14,7 +13,6 @@ import net.minecraft.world.entity.player.Player;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;

@@ -1,9 +1,10 @@
 package com.elfoteo.tutorialmod.util;
 
 public enum SuitModes {
-    ARMOR(0),
-    CLOAK(1),
-    VISOR(2);
+    NOT_EQUIPPED(0),
+    ARMOR(1),
+    CLOAK(2),
+    VISOR(3);
 
     private final int value;
 

@@ -1,5 +1,13 @@
 package com.elfoteo.tutorialmod.gui;
 
+import com.elfoteo.tutorialmod.attachments.ModAttachments;
+import com.elfoteo.tutorialmod.network.custom.skills.GetAllSkillsPacket;
+import com.elfoteo.tutorialmod.network.custom.skills.ResetSkillsPacket;
+import com.elfoteo.tutorialmod.network.custom.skills.SkillPointsPacket;
+import com.elfoteo.tutorialmod.network.custom.skills.UnlockSkillPacket;
+import com.elfoteo.tutorialmod.skill.Skill;
+import com.elfoteo.tutorialmod.skill.SkillData;
+import com.elfoteo.tutorialmod.skill.SkillState;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -8,18 +16,26 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Player;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * An improved Nanosuit skill tree screen with a more professional look and better functionality
+ * NanosuitSkillTree now:
+ *   • Uses SkillData.isUnlocked()/isAvailable() each frame instead of caching in nodes.
+ *   • Children lists have been removed entirely (they were never queried).
+ *   • Connections are drawn based on SkillData.isUnlocked(parent).
+ *   • Available points and unlocked state always read from player attachments directly.
  */
 @OnlyIn(Dist.CLIENT)
 public class NanosuitSkillTree extends Screen {
-    // Constants
+    // ---- Constants ----
     private static final int NODE_SIZE = 32;
     private static final int TITLE_HEIGHT = 25;
     private static final int FOOTER_HEIGHT = 40;
@@ -37,20 +53,14 @@ public class NanosuitSkillTree extends Screen {
     private static final int COLOR_LINE_UNLOCKED = 0xFF00FFFF;
     private static final int COLOR_LINE_BORDER = 0xFF000000;
 
-    // Data
-    private final List<SkillNode> nodes = new ArrayList<>();
-    private final List<Connection> connections = new ArrayList<>();
-
-    // UI
-    private Button resetButton, backButton;
+    // UI state
     private int scrollX, scrollY;
     private double lastMouseX, lastMouseY;
     private boolean dragging = false, initialized = false;
-    private SkillNode hoveredNode = null;
 
-    // Skill points
-    private static final int SKILL_POINTS = 5;
-    private int availablePoints = SKILL_POINTS;
+    // One SkillNode per Skill
+    private final Map<Skill, SkillNode> nodeMap = new HashMap<>();
+    private final List<Connection> connections = new ArrayList<>();
 
     public NanosuitSkillTree() {
         super(Component.translatable("gui.tutorialmod.skilltree"));
@@ -60,238 +70,236 @@ public class NanosuitSkillTree extends Screen {
     protected void init() {
         super.init();
 
+        // 1) When the screen opens, request latest from server:
+        PacketDistributor.sendToServer(new SkillPointsPacket(0, 0));
+        PacketDistributor.sendToServer(new GetAllSkillsPacket(new ArrayList<>()));
+
         if (!initialized) {
-            // Build tree
-            createSkillTree();
-            updateNodeAvailability();
-
-            // Compute bounds
-            int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
-            int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
-            for (SkillNode n : nodes) {
-                minX = Math.min(minX, n.x);
-                maxX = Math.max(maxX, n.x + NODE_SIZE);
-                minY = Math.min(minY, n.y);
-                maxY = Math.max(maxY, n.y + NODE_SIZE);
-            }
-
-            // Center tree in available area
-            scrollX = (width - (maxX - minX)) / 2 - minX;
-            scrollY = (height - TITLE_HEIGHT - FOOTER_HEIGHT - (maxY - minY)) / 2 - minY + TITLE_HEIGHT;
+            buildSkillTree();
+            computeInitialScroll();
             initialized = true;
         }
 
-        // Buttons
-        resetButton = addRenderableWidget(
-                Button.builder(Component.translatable("gui.tutorialmod.reset"), this::resetTree)
-                        .pos(width - 110, height - 30).size(100, 20).build()
+        // 2) "Reset" button
+        addRenderableWidget(
+                Button.builder(Component.translatable("gui.tutorialmod.reset"), btn -> onReset())
+                        .pos(width - 110, height - 30)
+                        .size(100, 20)
+                        .build()
         );
-        backButton = addRenderableWidget(
-                Button.builder(Component.translatable("gui.back"), b -> onClose())
-                        .pos(10, height - 30).size(60, 20).build()
+
+        // 3) "Back" button
+        addRenderableWidget(
+                Button.builder(Component.translatable("gui.back"), btn -> onClose())
+                        .pos(10, height - 30)
+                        .size(60, 20)
+                        .build()
+        );
+
+        // 4) "Close" (X) button
+        addRenderableWidget(
+                Button.builder(Component.literal("X"), btn -> onClose())
+                        .pos(width - 20, 5)
+                        .size(20, 20)
+                        .build()
         );
     }
 
-    private void createSkillTree() {
-        nodes.clear();
+    /**
+     * Builds SkillNode objects and parent→child connections.
+     * Does not cache unlocked/available—those are looked up via SkillData each frame.
+     */
+    private void buildSkillTree() {
+        nodeMap.clear();
         connections.clear();
 
-        // Tier 1
-        SkillNode strength = addNode(0, 0, "nanosuit/strength", "Strength Enhancement", "Increases melee damage and carrying capacity");
-        SkillNode speed    = addNode(0, -80, "nanosuit/speed",    "Speed Enhancement",    "Improves movement and attack speed");
-        SkillNode armor    = addNode(0, 80,  "nanosuit/armor",    "Armor Enhancement",    "Provides additional damage protection");
+        // 1) Create a node for every skill
+        for (Skill s : Skill.values()) {
+            nodeMap.put(s, new SkillNode(s));
+        }
 
-        // Tier 2
-        SkillNode pAtk = addNode(-120, -40, "nanosuit/power_attack", "Power Attack", "Unleash a devastating strike on enemies");
-        SkillNode jmp  = addNode(-120,  40, "nanosuit/jump",         "Jump Boost",  "Jump higher and resist fall damage");
-        SkillNode dash = addNode(-120, -120,"nanosuit/dash",         "Tactical Dash","Quickly dash in any direction");
-        SkillNode shld = addNode(-120,  120,"nanosuit/shield",       "Energy Shield","Generate a protective energy barrier");
-
-        // Tier 3
-        SkillNode slam = addNode(-240,   0, "nanosuit/ground_slam", "Ground Slam",     "Slam into the ground, damaging nearby enemies");
-        SkillNode stea = addNode(-240,  -80,"nanosuit/stealth",     "Active Camouflage","Become partially invisible while not moving");
-        SkillNode regen= addNode(-240,   80,"nanosuit/regen",       "Nano-Regeneration","Slowly regenerate health over time");
-
-        // Connections
-        addConnection(strength, pAtk);
-        addConnection(strength, jmp);
-        addConnection(speed, dash);
-        addConnection(armor, shld);
-        addConnection(pAtk, slam);
-        addConnection(jmp, slam);
-        addConnection(dash, stea);
-        addConnection(shld, regen);
-
-        // Make roots available immediately
-        strength.available = speed.available = armor.available = true;
+        // 2) Build connections list (for drawing lines)
+        for (Skill child : Skill.values()) {
+            for (Skill parent : child.getParents()) {
+                SkillNode pNode = nodeMap.get(parent);
+                SkillNode cNode = nodeMap.get(child);
+                connections.add(new Connection(pNode, cNode));
+            }
+        }
     }
 
-    private SkillNode addNode(int x, int y, String iconPath, String title, String desc) {
-        var node = new SkillNode(x, y,
-                ResourceLocation.fromNamespaceAndPath("tutorialmod", "textures/gui/" + iconPath + ".png"),
-                Component.literal(title), Component.literal(desc)
-        );
-        nodes.add(node);
-        return node;
-    }
+    /**
+     * Centers the skill tree on screen.
+     */
+    private void computeInitialScroll() {
+        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
+        int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
 
-    private void addConnection(SkillNode parent, SkillNode child) {
-        connections.add(new Connection(parent, child));
-        parent.children.add(child);
-        child.parents.add(parent);
+        for (SkillNode node : nodeMap.values()) {
+            minX = Math.min(minX, node.x);
+            maxX = Math.max(maxX, node.x + NODE_SIZE);
+            minY = Math.min(minY, node.y);
+            maxY = Math.max(maxY, node.y + NODE_SIZE);
+        }
+
+        scrollX = (width - (maxX - minX)) / 2 - minX;
+        scrollY = (height - TITLE_HEIGHT - FOOTER_HEIGHT - (maxY - minY)) / 2 - minY + TITLE_HEIGHT;
     }
 
     @Override
     public void render(GuiGraphics gui, int mouseX, int mouseY, float pt) {
         super.render(gui, mouseX, mouseY, pt);
-        renderBackground(gui, mouseX, mouseY, pt);
 
-        // Bars
+        Player player = Minecraft.getInstance().player;
+        if (player == null) return;
+
+        // 1) Background
+        gui.fill(0, 0, width, height, COLOR_BG);
+
+        // 2) Title bar
         gui.fill(0, 0, width, TITLE_HEIGHT, COLOR_TITLE_BG);
-        gui.drawCenteredString(font, title, width/2, 7, 0xFFFFFFFF);
-        gui.fill(0, height - FOOTER_HEIGHT, width, height, COLOR_FOOTER_BG);
-        String pts = "Available Points: " + availablePoints;
-        gui.drawString(font, pts, width/2 - font.width(pts)/2, height - 28, 0xFFFFFF);
+        gui.drawCenteredString(font, title, width / 2, 7, 0xFFFFFFFF);
 
-        // Decide hovered node
-        hoveredNode = null;
-        for (SkillNode n : nodes) {
+        // 3) Footer with Available Points
+        int availablePoints = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
+        gui.fill(0, height - FOOTER_HEIGHT, width, height, COLOR_FOOTER_BG);
+        String ptsText = "Available Points: " + availablePoints;
+        gui.drawString(font, ptsText, width / 2 - font.width(ptsText) / 2, height - 28, 0xFFFFFF);
+
+        // 4) Find hovered node
+        SkillNode hoveredNode = null;
+        for (SkillNode n : nodeMap.values()) {
             if (n.isMouseOver(mouseX - scrollX, mouseY - scrollY)) {
                 hoveredNode = n;
                 break;
             }
         }
 
+        // 5) Scissor region for tree (exclude title/footer)
         int guiLeft = 0;
         int guiTop = TITLE_HEIGHT;
         int guiWidth = width;
         int guiHeight = height - TITLE_HEIGHT - FOOTER_HEIGHT;
-
         Window window = Minecraft.getInstance().getWindow();
         double scaleFactor = window.getGuiScale();
+        int winW = window.getWidth();
+        int winH = window.getHeight();
+        int scissorX = (int)(guiLeft * scaleFactor);
+        int scissorY = (int)(winH - (guiTop + guiHeight) * scaleFactor);
+        int scissorW = (int)(guiWidth * scaleFactor);
+        int scissorH = (int)(guiHeight * scaleFactor);
+        RenderSystem.enableScissor(scissorX, scissorY, scissorW, scissorH);
 
-        int windowWidth = window.getWidth();
-        int windowHeight = window.getHeight();
-
-// Convert GUI coordinates to window coordinates
-        int scissorX = (int) (guiLeft * scaleFactor);
-        int scissorY = (int) ((windowHeight - (guiTop + guiHeight) * scaleFactor));
-        int scissorWidth = (int) (guiWidth * scaleFactor);
-        int scissorHeight = (int) (guiHeight * scaleFactor);
-
-        RenderSystem.enableScissor(scissorX, scissorY, scissorWidth, scissorHeight);
-
-
-        // Translate
+        // 6) Translate and draw connections then nodes
         gui.pose().pushPose();
         gui.pose().translate(scrollX, scrollY, 0);
 
-        // Draw links
-        for (var c : connections) {
-            drawDoubleLine(gui, c);
+        for (Connection c : connections) {
+            drawConnection(gui, c);
         }
-        // Draw nodes atop
-        for (var n : nodes) {
+        for (SkillNode n : nodeMap.values()) {
             n.render(gui, mouseX - scrollX, mouseY - scrollY);
         }
         gui.pose().popPose();
+
         RenderSystem.disableScissor();
 
-        // Tooltip
+        // 7) Tooltip for hovered node
         if (hoveredNode != null) {
             var tip = new ArrayList<Component>();
-            tip.add(hoveredNode.title.copy().withStyle(s -> s.withBold(true)));
-            tip.add(hoveredNode.description);
-            if (hoveredNode.unlocked) {
+            tip.add(Component.literal(hoveredNode.skill.getTitle()).withStyle(s -> s.withBold(true)));
+            tip.add(Component.literal(hoveredNode.skill.getDescription()));
+
+            boolean unlocked = SkillData.isUnlocked(hoveredNode.skill);
+            boolean available = SkillData.isAvailable(hoveredNode.skill);
+
+            if (unlocked) {
                 tip.add(Component.literal("Status: Unlocked").withStyle(s -> s.withColor(0x00FF00)));
-            } else if (hoveredNode.available) {
+            } else if (available && availablePoints > 0) {
                 tip.add(Component.literal("Status: Available").withStyle(s -> s.withColor(0xFFFF00)));
                 tip.add(Component.literal("Cost: 1 skill point"));
+            } else if (available) {
+                tip.add(Component.literal("Status: Available").withStyle(s -> s.withColor(0xFFFF00)));
+                tip.add(Component.literal("No skill points left").withStyle(s -> s.withColor(0xFF0000)));
             } else {
                 tip.add(Component.literal("Status: Locked").withStyle(s -> s.withColor(0xFF0000)));
-                tip.add(Component.literal("Requires parent skills to be unlocked first"));
+                tip.add(Component.literal("Requires a parent skill unlocked"));
             }
+
             gui.renderComponentTooltip(font, tip, mouseX, mouseY);
         }
     }
 
-    private void drawDoubleLine(GuiGraphics gui, Connection c) {
-        int x1 = c.parent.x + NODE_SIZE/2, y1 = c.parent.y + NODE_SIZE/2;
-        int x2 = c.child.x + NODE_SIZE/2,  y2 = c.child.y + NODE_SIZE/2;
-        int midX = x2, midY = y1;
-        int mainColor = c.parent.unlocked ? COLOR_LINE_UNLOCKED : COLOR_LINE_LOCKED;
+    private void drawConnection(GuiGraphics gui, Connection c) {
+        int x1 = c.parent.x + NODE_SIZE / 2;
+        int y1 = c.parent.y + NODE_SIZE / 2;
+        int x2 = c.child.x + NODE_SIZE / 2;
+        int y2 = c.child.y + NODE_SIZE / 2;
+        int midX = x2;
+        int midY = y1;
 
-        // Horizontal segment
-        // black above
+        // Line color depends on parent unlocked
+        boolean parentUnlocked = SkillData.isUnlocked(c.parent.skill);
+        int lineColor = parentUnlocked ? COLOR_LINE_UNLOCKED : COLOR_LINE_LOCKED;
+
+        // Horizontal segment (bordered)
         gui.hLine(Math.min(x1, midX), Math.max(x1, midX), y1 - 1, COLOR_LINE_BORDER);
-        // main color
-        gui.hLine(Math.min(x1, midX), Math.max(x1, midX), y1,     mainColor);
-        // black below
+        gui.hLine(Math.min(x1, midX), Math.max(x1, midX), y1,     lineColor);
         gui.hLine(Math.min(x1, midX), Math.max(x1, midX), y1 + 1, COLOR_LINE_BORDER);
 
-        // Vertical segment
-        // black left
+        // Vertical segment (bordered)
         gui.vLine(x2 - 1, Math.min(y1, y2), Math.max(y1, y2), COLOR_LINE_BORDER);
-        // main color
-        gui.vLine(x2,     Math.min(y1, y2), Math.max(y1, y2), mainColor);
-        // black right
+        gui.vLine(x2,     Math.min(y1, y2), Math.max(y1, y2), lineColor);
         gui.vLine(x2 + 1, Math.min(y1, y2), Math.max(y1, y2), COLOR_LINE_BORDER);
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
+        // Ignore title/footer clicks
         if (my < TITLE_HEIGHT || my > height - FOOTER_HEIGHT) {
             return super.mouseClicked(mx, my, btn);
         }
+
+        // Right‐click for dragging
         if (btn == 1) {
-            lastMouseX = mx; lastMouseY = my; dragging = true; return true;
+            lastMouseX = mx;
+            lastMouseY = my;
+            dragging = true;
+            return true;
         }
+
+        // Left‐click to attempt unlocking
         if (btn == 0) {
-            double ax = mx - scrollX, ay = my - scrollY;
-            for (var n : nodes) {
+            double ax = mx - scrollX;
+            double ay = my - scrollY;
+            Player player = Minecraft.getInstance().player;
+            if (player == null) return super.mouseClicked(mx, my, btn);
+
+            int pts = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
+
+            for (SkillNode n : nodeMap.values()) {
                 if (n.isMouseOver(ax, ay)) {
-                    tryUnlockNode(n);
+                    boolean unlocked = SkillData.isUnlocked(n.skill);
+                    boolean available = SkillData.isAvailable(n.skill);
+                    if (!unlocked && available && pts > 0) {
+                        PacketDistributor.sendToServer(new UnlockSkillPacket(n.skill, UnlockSkillPacket.Success.SUCCESS));
+                        player.setData(ModAttachments.AVAILABLE_SKILL_POINTS, pts - 1);
+                    }
                     return true;
                 }
             }
         }
+
         return super.mouseClicked(mx, my, btn);
-    }
-
-    private void tryUnlockNode(SkillNode n) {
-        if (!n.unlocked && n.available && availablePoints > 0) {
-            n.unlocked = true;
-            availablePoints--;
-            updateNodeAvailability();
-        }
-    }
-
-    private void updateNodeAvailability() {
-        for (var n : nodes) {
-            if (!n.unlocked) n.available = false;
-        }
-        for (var n : nodes) {
-            if (!n.unlocked) {
-                if (n.parents.isEmpty()) {
-                    n.available = true;
-                } else {
-                    for (var p : n.parents) {
-                        if (p.unlocked) {
-                            n.available = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
     }
 
     @Override
     public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
         if (btn == 1 && dragging) {
-            scrollX += (int)(mx - lastMouseX);
-            scrollY += (int)(my - lastMouseY);
-            lastMouseX = mx; lastMouseY = my;
+            scrollX += (int) (mx - lastMouseX);
+            scrollY += (int) (my - lastMouseY);
+            lastMouseX = mx;
+            lastMouseY = my;
             return true;
         }
         return super.mouseDragged(mx, my, btn, dx, dy);
@@ -306,52 +314,87 @@ public class NanosuitSkillTree extends Screen {
         return super.mouseReleased(mx, my, btn);
     }
 
-    private void resetTree(Button btn) {
-        for (var n : nodes) n.unlocked = false;
-        availablePoints = SKILL_POINTS;
-        updateNodeAvailability();
+    /** Called when user clicks “Reset” */
+    private void onReset() {
+        PacketDistributor.sendToServer(new ResetSkillsPacket());
+        onClose();
     }
 
+    @Override
+    public void onClose() {
+        super.onClose();
+    }
+
+    /** Simple parent→child link */
     private static class Connection {
         final SkillNode parent, child;
-        Connection(SkillNode p, SkillNode c) { parent = p; child = c; }
+        Connection(SkillNode p, SkillNode c) {
+            this.parent = p;
+            this.child = c;
+        }
     }
 
+    /** Represents one skill node on the GUI */
     @OnlyIn(Dist.CLIENT)
     private static class SkillNode {
         final int x, y;
         final ResourceLocation icon;
-        final Component title, description;
-        boolean unlocked = false, available = false;
-        final List<SkillNode> parents = new ArrayList<>(), children = new ArrayList<>();
+        final Skill skill;
 
-        SkillNode(int x, int y, ResourceLocation icon, Component title, Component description) {
-            this.x = x; this.y = y;
-            this.icon = icon; this.title = title; this.description = description;
+        SkillNode(Skill s) {
+            this.skill = s;
+            this.x     = s.getX();
+            this.y     = s.getY();
+            this.icon  = ResourceLocation.fromNamespaceAndPath( // This is the API for 1.16+, DO NOT CHANGE
+                    "tutorialmod",
+                    "textures/gui/" + s.getIconPath() + ".png"
+            );
         }
 
         void render(GuiGraphics gui, int mx, int my) {
             boolean hover = isMouseOver(mx, my);
-            int bg = unlocked ? COLOR_NODE_BG_UNLOCKED
-                    : available ? COLOR_NODE_BG_AVAILABLE
-                    : COLOR_NODE_BG_LOCKED;
-            int border = hover ? COLOR_NODE_BORDER_HIGHLIGHT : COLOR_NODE_BORDER_NORMAL;
+            Player player = Minecraft.getInstance().player;
+            if (player == null) return;
 
-            // background & border
-            gui.fill(x, y, x + NODE_SIZE, y + NODE_SIZE, bg);
-            gui.hLine(x, x + NODE_SIZE - 1, y, border);
-            gui.hLine(x, x + NODE_SIZE - 1, y + NODE_SIZE - 1, border);
-            gui.vLine(x, y, y + NODE_SIZE - 1, border);
-            gui.vLine(x + NODE_SIZE - 1, y, y + NODE_SIZE - 1, border);
+            boolean unlocked = SkillData.isUnlocked(skill);
+            boolean available = SkillData.isAvailable(skill);
+            int pts = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
 
-            // icon
+            // Choose background
+            int bgColor;
+            if (unlocked) {
+                bgColor = COLOR_NODE_BG_UNLOCKED;
+            } else if (available && pts > 0) {
+                bgColor = COLOR_NODE_BG_AVAILABLE;
+            } else {
+                bgColor = COLOR_NODE_BG_LOCKED;
+            }
+
+            int borderColor = hover ? COLOR_NODE_BORDER_HIGHLIGHT : COLOR_NODE_BORDER_NORMAL;
+
+            // Draw box
+            gui.fill(x, y, x + NODE_SIZE, y + NODE_SIZE, bgColor);
+            gui.hLine(x, x + NODE_SIZE - 1, y, borderColor);
+            gui.hLine(x, x + NODE_SIZE - 1, y + NODE_SIZE - 1, borderColor);
+            gui.vLine(x, y, y + NODE_SIZE - 1, borderColor);
+            gui.vLine(x + NODE_SIZE - 1, y, y + NODE_SIZE - 1, borderColor);
+
+            // Draw icon
             RenderSystem.enableBlend();
             int pad = 4;
-            gui.blit(icon, x + pad, y + pad, 0, 0, NODE_SIZE - pad*2, NODE_SIZE - pad*2,
-                    NODE_SIZE - pad*2, NODE_SIZE - pad*2);
+            gui.blit(
+                    icon,
+                    x + pad,
+                    y + pad,
+                    0, 0,
+                    NODE_SIZE - pad * 2,
+                    NODE_SIZE - pad * 2,
+                    NODE_SIZE - pad * 2,
+                    NODE_SIZE - pad * 2
+            );
             RenderSystem.disableBlend();
 
-            // locked overlay
+            // Dark overlay if locked and not available
             if (!unlocked && !available) {
                 gui.fill(x, y, x + NODE_SIZE, y + NODE_SIZE, 0x99000000);
             }

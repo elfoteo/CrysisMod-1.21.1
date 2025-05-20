@@ -1,4 +1,4 @@
-package com.elfoteo.tutorialmod.mixins;
+package com.elfoteo.tutorialmod.mixins.nanosuit;
 
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.world.entity.LivingEntity;

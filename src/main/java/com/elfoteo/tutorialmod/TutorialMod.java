@@ -67,7 +67,9 @@ public class TutorialMod {
         // this class, like onServerStarting() below.
         // NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.register(Nanosuit.class);
-        modEventBus.register(InfraredShader.class);
+        if (FMLLoader.getDist() == Dist.CLIENT){
+            modEventBus.register(InfraredShader.class);
+        }
 
         ModCreativeModeTabs.register(modEventBus);
         ModItems.register(modEventBus);

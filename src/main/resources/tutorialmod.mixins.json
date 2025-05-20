@@ -3,6 +3,7 @@
   "package": "com.elfoteo.tutorialmod.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "nanosuit.upgrades.NanosuitNoSoundMixin",
   ],
   "client": [
     "BlockRenderDispatcherMixin",
@@ -13,10 +14,6 @@
     "LiquidBlockRenderMixin",
     "ModelBlockRenderMixin",
     "ModelRenderMixin",
-    "NanosuitLivingEntityRenderer",
-    "NanosuitNoParticles",
-    "NanosuitNoShadow",
-    "NanosuitPlayerRenderer",
     "RenderTypeMixin",
     "accessors.CompositeRenderTypeMixin",
     "accessors.ICompositeStateAccessor",
@@ -24,6 +21,10 @@
     "layer.HumanoidArmorLayerMixin",
     "layer.ItemInHandLayerMixin",
     "layer.RenderLayerMixin",
+    "nanosuit.NanosuitLivingEntityRenderer",
+    "nanosuit.NanosuitNoParticles",
+    "nanosuit.NanosuitNoShadow",
+    "nanosuit.NanosuitPlayerRenderer",
     "particles.ParticleEngineMixin"
   ],
   "injectors": {
