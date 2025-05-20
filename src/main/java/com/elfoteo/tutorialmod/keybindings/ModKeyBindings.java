@@ -9,6 +9,7 @@ import org.lwjgl.glfw.GLFW;
 public class ModKeyBindings {
     public static KeyMapping CLOAK_KEY;
     public static KeyMapping VISOR_KEY;
+    public static KeyMapping SKILLTREE_KEY;
 
     public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
         CLOAK_KEY = new KeyMapping(
@@ -26,5 +27,13 @@ public class ModKeyBindings {
                 "key.categories.tutorialmod"
         );
         event.register(VISOR_KEY);
+
+        SKILLTREE_KEY = new KeyMapping(
+                "key.tutorialmod.skilltree",
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_H,  // or any key you want
+                "key.categories.tutorialmod"
+        );
+        event.register(SKILLTREE_KEY);
     }
 }

@@ -1,5 +1,7 @@
 package com.elfoteo.tutorialmod.event;
 
+import com.elfoteo.tutorialmod.gui.NanosuitSkillTree;
+import com.elfoteo.tutorialmod.keybindings.ModKeyBindings;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Camera;
@@ -16,6 +18,7 @@ import net.minecraft.world.entity.ai.targeting.TargetingConditions;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
@@ -102,6 +105,16 @@ public class ModClientEvents {
             int sectionY = (int)((key >> 32) & 0xFFL);
             int sectionZ = (int)(key & 0xFFFFFFFFL);
             renderer.setSectionDirty(sectionX, sectionY, sectionZ);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.NORMAL)
+    public static void onClientTick(ClientTickEvent.Post event) {
+        if (ModKeyBindings.SKILLTREE_KEY != null && ModKeyBindings.SKILLTREE_KEY.consumeClick()) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen == null) {
+                mc.setScreen(new NanosuitSkillTree());
+            }
         }
     }
 }
