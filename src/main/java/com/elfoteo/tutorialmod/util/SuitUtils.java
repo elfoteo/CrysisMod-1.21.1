@@ -84,19 +84,29 @@ public class SuitUtils {
         }
     }
 
+    private static float getAvailableEnergy(Player player) {
+        return player.getData(ModAttachments.ENERGY);
+    }
+
     /**
-     * Handles fall damage absorption in Armor mode.
-     * Absorbs 100% of fall damage by draining energy at 5x the fall damage.
-     * Returns true if fall damage should be canceled.
+     * Attempts to absorb fall damage in Armor mode.
+     * Drains energy at 1.5x the fall damage amount.
+     * Returns the amount of remaining damage that wasn't absorbed.
      */
-    public static boolean absorbFallDamage(Player player, float fallDamage) {
+    public static float absorbFallDamage(Player player, float fallDamage) {
         if (!isArmorMode(player) || !isWearingFullNanosuit(player)) {
-            return false;
+            return fallDamage;
         }
-        float drainAmount = fallDamage * 1.5f; // TODO: Tweak with a exponential curve or smth
-        if (tryDrainEnergy(player, drainAmount)) {
-            return true; // cancel all fall damage
+
+        float drainAmount = fallDamage * 1.5f;
+        float availableEnergy = getAvailableEnergy(player); // You need this method
+        float absorbableDamage = Math.min(fallDamage, availableEnergy / 1.5f);
+        float energyToDrain = absorbableDamage * 1.5f;
+
+        if (absorbableDamage > 0) {
+            tryDrainEnergy(player, energyToDrain);
         }
-        return false;
+
+        return fallDamage - absorbableDamage;
     }
 }

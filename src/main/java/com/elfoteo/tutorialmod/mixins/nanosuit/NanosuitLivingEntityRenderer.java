@@ -2,6 +2,8 @@ package com.elfoteo.tutorialmod.mixins.nanosuit;
 
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
 import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
+import com.elfoteo.tutorialmod.skill.Skill;
+import com.elfoteo.tutorialmod.skill.SkillState;
 import com.elfoteo.tutorialmod.util.InfraredShader;
 import com.elfoteo.tutorialmod.util.SuitModes;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -20,6 +22,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.core.Direction;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.spongepowered.asm.mixin.Final;
@@ -131,24 +134,35 @@ public abstract class NanosuitLivingEntityRenderer<T extends LivingEntity, M ext
             model.prepareMobModel(entity, walkPos, walkSpeed, partialTicks);
             model.setupAnim(entity, walkPos, walkSpeed, bob, yawDelta, pitch);
 
+            // Determine if the entity is a player with Thermal Dampeners skill unlocked
+            boolean hasThermalDampeners = false;
+            if (entity instanceof Player player) {
+                var skillsMap = player.getData(ModAttachments.ALL_SKILLS);
+                SkillState thermalSkill = skillsMap.get(Skill.THERMAL_DAMPENERS);
+                hasThermalDampeners = thermalSkill != null && thermalSkill.isUnlocked();
+            }
+
             // Determine render type
             RenderType renderType = null;
             if (isVisor) {
-                // Infrared for visor
                 if (entity.getType().is(EntityTypeTags.UNDEAD)) {
                     renderType = InfraredShader.infraredUndeadGeneric(getTextureLocation(entity));
                 } else {
                     renderType = InfraredShader.infraredEntityGeneric(getTextureLocation(entity));
                 }
             }
-            // Cloak mode: skip rendering by leaving renderType null
 
+            if (hasThermalDampeners) {
+                InfraredShader.INFRARED_ENTITY_SHADER.getUniform("u_Heat").set(-3f);
+            }
+
+            // Cloak mode: skip rendering if renderType is null
             if (renderType != null) {
                 VertexConsumer vc = buffer.getBuffer(renderType);
                 model.renderToBuffer(poseStack, vc, 0xF000F, 0xFFFFFFFF, 0xFF0000FF);
             }
 
-            // Render layers
+            // Render layers if not spectator
             if (!entity.isSpectator()) {
                 for (RenderLayer<T, M> layer : layers) {
                     layer.render(poseStack, buffer, packedLight, entity,
@@ -157,6 +171,10 @@ public abstract class NanosuitLivingEntityRenderer<T extends LivingEntity, M ext
             }
 
             poseStack.popPose();
+
+            if (hasThermalDampeners) {
+                InfraredShader.INFRARED_ENTITY_SHADER.getUniform("u_Heat").set(0f);
+            }
             // Post-render event
             NeoForge.EVENT_BUS.post(new RenderLivingEvent.Post(entity,
                     (LivingEntityRenderer<?, ?>) (Object) this, partialTicks,

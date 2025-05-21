@@ -12,7 +12,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ServerPayloadHandler {
     public static void handleArmorInfoPacket(ArmorInfoPacket packet, IPayloadContext context) {
@@ -53,11 +56,13 @@ public class ServerPayloadHandler {
         ServerPlayer player = (ServerPlayer) context.player();
 
         context.enqueueWork(() -> {
-            // Reset ALL_SKILLS to default locked state (recreate default list)
-            List<SkillState> defaultSkills = new ArrayList<>();
-            for (Skill s : Skill.values()) {
-                defaultSkills.add(new SkillState(s, false));
-            }
+            // Reset ALL_SKILLS to default locked state (recreate default map)
+            Map<Skill, SkillState> defaultSkills = Arrays.stream(Skill.values())
+                    .collect(Collectors.toMap(
+                            skill -> skill,
+                            skill -> new SkillState(skill, false)
+                    ));
+
             player.setData(ModAttachments.ALL_SKILLS, defaultSkills);
 
             // Reset available skill points to initial value
@@ -70,24 +75,17 @@ public class ServerPayloadHandler {
             PacketDistributor.sendToPlayer(player, new ResetSkillsPacket());
         });
     }
-
     public static void handleUnlockSkillPacket(UnlockSkillPacket packet, IPayloadContext context) {
         ServerPlayer player = (ServerPlayer) context.player();
         Skill skill = packet.skill();
 
         context.enqueueWork(() -> {
-            List<SkillState> currentSkills = player.getData(ModAttachments.ALL_SKILLS);
+            Map<Skill, SkillState> currentSkills = player.getData(ModAttachments.ALL_SKILLS);
             int availablePoints = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
 
-            // Check if skill is already unlocked
-            boolean alreadyUnlocked = currentSkills.stream()
-                    .anyMatch(state -> state.getSkill().equals(skill) && state.isUnlocked());
+            SkillState targetState = currentSkills.get(skill);
 
-            // Find the target SkillState
-            SkillState targetState = currentSkills.stream()
-                    .filter(state -> state.getSkill().equals(skill))
-                    .findFirst()
-                    .orElse(null);
+            boolean alreadyUnlocked = targetState != null && targetState.isUnlocked();
 
             if (targetState != null && !alreadyUnlocked && availablePoints > 0) {
                 // Unlock the skill
@@ -100,18 +98,13 @@ public class ServerPayloadHandler {
                 player.setData(ModAttachments.ALL_SKILLS, currentSkills);
 
                 // Send success packet
-                PacketDistributor.sendToPlayer(player, new UnlockSkillPacket(
-                        skill,
-                        UnlockSkillPacket.Success.SUCCESS
-                ));
+                PacketDistributor.sendToPlayer(player, new UnlockSkillPacket(skill, UnlockSkillPacket.Success.SUCCESS));
             } else {
                 // Send failure packet
-                PacketDistributor.sendToPlayer(player, new UnlockSkillPacket(
-                        skill,
-                        UnlockSkillPacket.Success.FAILURE
-                ));
+                PacketDistributor.sendToPlayer(player, new UnlockSkillPacket(skill, UnlockSkillPacket.Success.FAILURE));
             }
-            // In any case ensure that the client has the right skill point count
+
+            // Sync skill points regardless of outcome
             PacketDistributor.sendToPlayer(player, new SkillPointsPacket(
                     player.getData(ModAttachments.AVAILABLE_SKILL_POINTS),
                     player.getData(ModAttachments.MAX_SKILL_POINTS)
@@ -120,7 +113,6 @@ public class ServerPayloadHandler {
     }
 
     public static void handleSkillPointsPacket(SkillPointsPacket packet, IPayloadContext context) {
-        // The client has requested the skill point data, so we send it to him
         ServerPlayer player = (ServerPlayer) context.player();
 
         context.enqueueWork(() -> {

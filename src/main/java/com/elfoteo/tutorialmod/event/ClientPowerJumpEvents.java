@@ -27,7 +27,7 @@ import org.joml.Vector3f;
 
 import java.util.*;
 
-@EventBusSubscriber(modid = TutorialMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(modid = TutorialMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public class ClientPowerJumpEvents {
     private static final float JUMP_COST = 20f;
     private static final Map<Player, Float> jumpChargeMap = new WeakHashMap<>();

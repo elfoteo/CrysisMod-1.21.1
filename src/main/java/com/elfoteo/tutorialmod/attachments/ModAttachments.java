@@ -4,13 +4,16 @@ import com.elfoteo.tutorialmod.skill.Skill;
 import com.elfoteo.tutorialmod.skill.SkillState;
 import com.mojang.serialization.Codec;
 import com.elfoteo.tutorialmod.TutorialMod;
+import com.mojang.serialization.codecs.UnboundedMapCodec;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 public class ModAttachments {
@@ -48,22 +51,20 @@ public class ModAttachments {
                     .build()
     );
 
-    public static final Codec<List<SkillState>> SKILLSTATE_LIST_CODEC =
-            SkillState.CODEC.listOf();
+    public static final Codec<Map<Skill, SkillState>> SKILLSTATE_MAP_CODEC =
+            Codec.unboundedMap(SkillState.SKILL_CODEC, SkillState.CODEC);
 
-    public static final Supplier<AttachmentType<List<SkillState>>> ALL_SKILLS = ATTACHMENT_TYPES.register(
-            "skill_states",
-            () -> AttachmentType.<List<SkillState>>builder(() -> {
-                        // By default, produce a fresh List<SkillState> with all Skills locked
-                        List<SkillState> defaults = new ArrayList<>();
+    public static final Supplier<AttachmentType<Map<Skill,SkillState>>> ALL_SKILLS =
+            ATTACHMENT_TYPES.register("skill_state_map",
+                    () -> AttachmentType.<Map<Skill,SkillState>>builder(() -> {
+                        Map<Skill,SkillState> defaults = new HashMap<>();
                         for (Skill s : Skill.values()) {
-                            defaults.add(new SkillState(s, false));
+                            defaults.put(s, new SkillState(s, false));
                         }
                         return defaults;
-                    })
-                    .serialize(SKILLSTATE_LIST_CODEC)
-                    .build()
-    );
+                    }).serialize(SKILLSTATE_MAP_CODEC).build()
+            );
+
 
     public static final Supplier<AttachmentType<Integer>> AVAILABLE_SKILL_POINTS = ATTACHMENT_TYPES.register(
             "available_skill_points",

@@ -1,5 +1,8 @@
 package com.elfoteo.tutorialmod;
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
+import com.elfoteo.tutorialmod.event.ClientPowerJumpEvents;
+import com.elfoteo.tutorialmod.nanosuit.NanosuitUpgrades;
+import com.elfoteo.tutorialmod.nanosuit.RegenerationSystem;
 import com.elfoteo.tutorialmod.network.ModPackets;
 import com.elfoteo.tutorialmod.block.ModBlocks;
 import com.elfoteo.tutorialmod.block.entity.ModBlockEntities;
@@ -67,6 +70,9 @@ public class TutorialMod {
         // this class, like onServerStarting() below.
         // NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.register(Nanosuit.class);
+        NeoForge.EVENT_BUS.register(NanosuitUpgrades.class);
+        NeoForge.EVENT_BUS.register(RegenerationSystem.class);
+        NeoForge.EVENT_BUS.register(ClientPowerJumpEvents.class);
         if (FMLLoader.getDist() == Dist.CLIENT){
             modEventBus.register(InfraredShader.class);
         }

@@ -4,6 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "nanosuit.upgrades.NanosuitNoSoundMixin",
+    ,
+    "nanosuit.upgrades.NanosuitNoVibrations"
   ],
   "client": [
     "BlockRenderDispatcherMixin",

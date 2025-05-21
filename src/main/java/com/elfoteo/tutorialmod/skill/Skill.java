@@ -14,7 +14,7 @@ public enum Skill {
         0, -200,
         "nanosuit/silent_step",
         "Silent Step",
-        "Movement makes no sound while walking or running.",
+        "Movement makes no sound or vibrations while walking or running.",
         new Skill[]{} // no parents
     ),
     THERMAL_DAMPENERS(
@@ -28,7 +28,7 @@ public enum Skill {
         120, -140,
         "nanosuit/ground_skim",
         "Ground Skim",
-        "While sprinting with any energy, you take no fall damage.",
+        "All fall damage is negated if you have enough energy.",
         new Skill[]{SILENT_STEP}
     ),
     DYNAMIC_CLOAKING(

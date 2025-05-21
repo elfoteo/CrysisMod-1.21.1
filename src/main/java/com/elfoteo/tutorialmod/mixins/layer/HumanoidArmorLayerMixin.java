@@ -4,6 +4,7 @@ import com.elfoteo.tutorialmod.TutorialMod;
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
 import com.elfoteo.tutorialmod.event.ClientPowerJumpEvents;
 import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
+import com.elfoteo.tutorialmod.skill.Skill;
 import com.elfoteo.tutorialmod.util.InfraredShader;
 import com.elfoteo.tutorialmod.util.RenderState;
 import com.elfoteo.tutorialmod.util.SuitModes;
@@ -13,6 +14,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -63,18 +65,44 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
             int maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
             float energyRatio = maxEnergy > 0 ? (float) currentEnergy / maxEnergy : 0f;
 
+            // Access main client player for special visor mode handling
+            Player mcPlayer = Minecraft.getInstance().player;
+            boolean mcPlayerInVisor = mcPlayer != null && mcPlayer.getData(ModAttachments.SUIT_MODE) == SuitModes.VISOR.get();
+
             float r, g, b;
-            switch (mode) {
-                case VISOR:
+            if (!mcPlayerInVisor){
+                if (mode == SuitModes.VISOR) {
+                    // In visor mode, fixed colors depending on THERMAL_DAMPENERS skill on current player
                     r = 1f; g = 0f; b = 0f;
-                    break;
-                case ARMOR:
-                    r = 0.5f; g = 0.5f; b = 0.5f;
-                    break;
-                case CLOAK:
-                default:
-                    r = 0.6f; g = 0.8f; b = 1f;
-                    break;
+                } else {
+                    // Other modes
+                    switch (mode) {
+                        case ARMOR:
+                            r = 0.5f; g = 0.5f; b = 0.5f;
+                            break;
+                        case CLOAK:
+                        default:
+                            r = 0.6f; g = 0.8f; b = 1f;
+                            break;
+                    }
+
+                    // Only apply pulsing red overlay if energy low AND mc.player is NOT in visor mode
+                    if (energyRatio < 0.2f) {
+                        double millis = System.currentTimeMillis();
+                        float pulse = (float) ((Math.sin(millis / 300.0) + 1.0) * 0.5);
+                        r = r * (1 - pulse) + 1f * pulse;
+                        g = g * (1 - pulse) + 0f * pulse;
+                        b = b * (1 - pulse) + 0f * pulse;
+                    }
+                }
+            }
+            else{
+                if (player.getData(ModAttachments.ALL_SKILLS).get(Skill.THERMAL_DAMPENERS).isUnlocked()){
+                    r = 0.235f; g = 0f; b = 0.157f;
+                }
+                else{
+                    r = 1f; g = 0f; b = 0f;
+                }
             }
 
             // If player is charging a jump, fade to yellow (1, 1, 0) based on charge
@@ -88,15 +116,6 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
                 }
             }
 
-            // Smooth pulsing red overlay when energy is low (<20%)
-            if (energyRatio < 0.2f) {
-                double millis = System.currentTimeMillis();
-                float pulse = (float) ((Math.sin(millis / 300.0) + 1.0) * 0.5);
-                r = r * (1 - pulse) + 1f * pulse;
-                g = g * (1 - pulse) + 0f * pulse;
-                b = b * (1 - pulse) + 0f * pulse;
-            }
-
             float timeSec = (System.currentTimeMillis() % 100000L) / 1000f;
             InfraredShader.NANOSUIT_OVERLAY_SHADER.getUniform("Time").set(timeSec);
             InfraredShader.NANOSUIT_OVERLAY_SHADER.getUniform("ModeModulator").set(r, g, b, 1f);
@@ -104,9 +123,8 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
             VertexConsumer vertexConsumer = buffer.getBuffer(InfraredShader.nanosuitOverlay(OVERLAY_TEXTURE));
             model.renderToBuffer(poseStack, vertexConsumer, packedLight, OverlayTexture.NO_OVERLAY, dyeColor);
             ci.cancel();
-        }
-        else {
-            if (Nanosuit.currentClientMode == SuitModes.VISOR.get()){
+        } else {
+            if (Nanosuit.currentClientMode == SuitModes.VISOR.get()) {
                 VertexConsumer vertexConsumer = buffer.getBuffer(InfraredShader.infraredArmorCutoutNoCull(textureLocation));
                 model.renderToBuffer(poseStack, vertexConsumer, packedLight, OverlayTexture.NO_OVERLAY, dyeColor);
             }

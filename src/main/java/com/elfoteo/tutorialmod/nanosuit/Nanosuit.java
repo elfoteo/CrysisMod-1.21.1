@@ -16,6 +16,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageSources;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
@@ -28,6 +32,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
@@ -192,6 +197,7 @@ public class Nanosuit {
     @SubscribeEvent
     public static void onLivingHurt(LivingIncomingDamageEvent event) {
         LivingEntity entity = event.getEntity();
+        if (event.getSource().is(DamageTypes.FALL)) return;
         if (!(entity instanceof Player p) || p.level().isClientSide()) return;
         if (currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
 
@@ -204,16 +210,5 @@ public class Nanosuit {
                     new SuitModePacket(p.getId(), SuitModes.ARMOR.get()));
         }
         event.setAmount(SuitUtils.absorbDamage(p, event.getAmount()));
-    }
-
-    @SubscribeEvent
-    public static void onLivingFall(LivingFallEvent event) {
-        if (currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
-        LivingEntity entity = event.getEntity();
-        if (entity instanceof Player p && !p.level().isClientSide()) {
-            if (SuitUtils.absorbFallDamage(p, event.getDistance() * event.getDamageMultiplier())) {
-                event.setCanceled(true);
-            }
-        }
     }
 }

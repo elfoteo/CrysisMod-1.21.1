@@ -72,7 +72,7 @@ public class NanosuitSkillTree extends Screen {
 
         // 1) When the screen opens, request latest from server:
         PacketDistributor.sendToServer(new SkillPointsPacket(0, 0));
-        PacketDistributor.sendToServer(new GetAllSkillsPacket(new ArrayList<>()));
+        PacketDistributor.sendToServer(new GetAllSkillsPacket(new HashMap<>()));
 
         if (!initialized) {
             buildSkillTree();

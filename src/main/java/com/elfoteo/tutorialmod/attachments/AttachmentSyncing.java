@@ -4,6 +4,7 @@ import com.elfoteo.tutorialmod.TutorialMod;
 import com.elfoteo.tutorialmod.network.custom.ArmorInfoPacket;
 import com.elfoteo.tutorialmod.network.custom.skills.GetAllSkillsPacket;
 import com.elfoteo.tutorialmod.network.custom.skills.SkillPointsPacket;
+import com.elfoteo.tutorialmod.skill.Skill;
 import com.elfoteo.tutorialmod.skill.SkillState;
 import com.elfoteo.tutorialmod.util.SuitModes;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -13,7 +14,10 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @EventBusSubscriber(modid = TutorialMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public class AttachmentSyncing {
@@ -32,11 +36,14 @@ public class AttachmentSyncing {
             }
 
             if (event.getOriginal().hasData(ModAttachments.ALL_SKILLS)) {
-                List<SkillState> originalStates = event.getOriginal().getData(ModAttachments.ALL_SKILLS);
-                List<SkillState> copiedStates = new ArrayList<>();
-                for (SkillState state : originalStates) {
-                    copiedStates.add(new SkillState(state.getSkill(), state.isUnlocked()));
-                }
+                Map<Skill, SkillState> originalStates = event.getOriginal().getData(ModAttachments.ALL_SKILLS);
+
+                Map<Skill, SkillState> copiedStates = originalStates.entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                entry -> new SkillState(entry.getKey(), entry.getValue().isUnlocked())
+                        ));
+
                 event.getEntity().setData(ModAttachments.ALL_SKILLS, copiedStates);
             }
 
@@ -66,11 +73,14 @@ public class AttachmentSyncing {
         event.getNewPlayer().setData(ModAttachments.SUIT_MODE, 0);
 
         if (event.getOldPlayer().hasData(ModAttachments.ALL_SKILLS)) {
-            List<SkillState> oldStates = event.getOldPlayer().getData(ModAttachments.ALL_SKILLS);
-            List<SkillState> copiedStates = new ArrayList<>();
-            for (SkillState state : oldStates) {
-                copiedStates.add(new SkillState(state.getSkill(), state.isUnlocked()));
-            }
+            Map<Skill, SkillState> originalStates = event.getOldPlayer().getData(ModAttachments.ALL_SKILLS);
+
+            Map<Skill, SkillState> copiedStates = originalStates.entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            entry -> new SkillState(entry.getKey(), entry.getValue().isUnlocked())
+                    ));
+
             event.getNewPlayer().setData(ModAttachments.ALL_SKILLS, copiedStates);
         }
 
@@ -95,6 +105,6 @@ public class AttachmentSyncing {
     private static void requestPlayerData() {
         PacketDistributor.sendToServer(new ArmorInfoPacket(0, 0, 0, 0));
         PacketDistributor.sendToServer(new SkillPointsPacket(0, 0));
-        PacketDistributor.sendToServer(new GetAllSkillsPacket(new ArrayList<>())); // Now using SkillState
+        PacketDistributor.sendToServer(new GetAllSkillsPacket(new HashMap<>())); // Now using SkillState
     }
 }

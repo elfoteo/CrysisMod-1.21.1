@@ -33,7 +33,7 @@ public class NanosuitOverlay {
     // jump anim state (smooth visual)
     private static float animatedJump   = 0f;
 
-    private static final float ENERGY_ANIM_SPEED = 0.5f;
+    private static final float ENERGY_ANIM_SPEED = 0.85f; // TODO: This is not in seconds, refactor
     private static final float JUMP_ANIM_SPEED   = 3f; // higher = snappier
     private static long  lastTime = System.currentTimeMillis();
 
