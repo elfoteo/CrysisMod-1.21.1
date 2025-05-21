@@ -68,20 +68,25 @@ public class SuitUtils {
     /**
      * Handles generic damage absorption in Armor mode.
      * Absorbs 80% of damage by draining energy at 4x the damage.
+     * If energy is insufficient, absorb as much as possible.
      * Returns the new damage value to apply.
      */
     public static float absorbDamage(Player player, float incomingDamage) {
-        if (!isArmorMode(player) || !isWearingFullNanosuit(player)) {
+        if (!(isArmorMode(player) && isWearingFullNanosuit(player))) {
             return incomingDamage;
         }
-        float drainAmount = incomingDamage * 4f;
-        if (tryDrainEnergy(player, drainAmount)) {
-            // Absorb 80%, so only 20% passes through
-            return incomingDamage * 0.2f;
-        } else {
-            // Not enough energy: no absorption
-            return incomingDamage;
+
+        float energy = player.getData(ModAttachments.ENERGY);
+        float maxAbsorbable = energy / 4f; // 1 damage costs 4 energy
+        float absorbableDamage = Math.min(incomingDamage, maxAbsorbable);
+        float energyToDrain = absorbableDamage * 4f;
+
+        if (energyToDrain > 0f) {
+            player.setData(ModAttachments.ENERGY, energy - energyToDrain);
         }
+
+        float absorbed = absorbableDamage * 0.8f;
+        return incomingDamage - absorbed;
     }
 
     private static float getAvailableEnergy(Player player) {

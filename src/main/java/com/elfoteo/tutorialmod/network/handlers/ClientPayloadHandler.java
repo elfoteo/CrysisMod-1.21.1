@@ -9,6 +9,7 @@ import com.elfoteo.tutorialmod.network.custom.skills.SkillPointsPacket;
 import com.elfoteo.tutorialmod.network.custom.skills.UnlockSkillPacket;
 import com.elfoteo.tutorialmod.skill.Skill;
 import com.elfoteo.tutorialmod.skill.SkillState;
+import com.elfoteo.tutorialmod.util.SuitModes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.api.distmarker.Dist;
@@ -40,7 +41,9 @@ public class ClientPayloadHandler {
         }
         context.enqueueWork(() -> {
             player.setData(ModAttachments.SUIT_MODE, packet.suitMode());
-            Nanosuit.previousClientMode = Nanosuit.currentClientMode;
+            if (Nanosuit.currentClientMode == SuitModes.VISOR.get() && packet.suitMode() != SuitModes.VISOR.get()) {
+                Nanosuit.previousClientMode = Nanosuit.currentClientMode; // Remember what we switched to after visor ends
+            }
             Nanosuit.currentClientMode = packet.suitMode();
         });
     }

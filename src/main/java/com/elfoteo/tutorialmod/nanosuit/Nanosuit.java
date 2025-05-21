@@ -61,6 +61,7 @@ public class Nanosuit {
         Player player = Minecraft.getInstance().player;
         if (player == null) return;
 
+        // 1) bail out if suit not equipped
         if (!SuitUtils.isWearingFullNanosuit(player)) {
             if (currentClientMode != SuitModes.NOT_EQUIPPED.get()) {
                 setClientMode(SuitModes.NOT_EQUIPPED.get(), player);
@@ -69,31 +70,37 @@ public class Nanosuit {
         }
 
         float energy = player.getData(ModAttachments.ENERGY);
-        int mode = currentClientMode;
+        int mode   = currentClientMode;
         int target = mode;
 
-        long currentTime = System.currentTimeMillis();
+        long now        = System.currentTimeMillis();
         long blockedUntil = cloakBreakTimestamps.getOrDefault(player.getUUID(), 0L);
-        boolean cloakBlocked = currentTime < blockedUntil;
+        boolean cloakBlocked = now < blockedUntil;
 
-        if (mode != SuitModes.ARMOR.get() && energy <= 0f) {
-            target = SuitModes.ARMOR.get();
-        } else {
-            if (ModKeyBindings.CLOAK_KEY.isDown()) {
-                if (energy > 0f && mode != SuitModes.CLOAK.get() && !cloakBlocked) {
-                    target = SuitModes.CLOAK.get();
-                }
-            } else if (mode == SuitModes.CLOAK.get()) {
+        boolean visorKeyDown = ModKeyBindings.VISOR_KEY.isDown();
+        boolean cloakKeyDown = ModKeyBindings.CLOAK_KEY.isDown();
+
+        // --- FIRST: VISOR takes absolute priority ---
+        if (visorKeyDown && energy > 0f) {
+            if (mode != SuitModes.VISOR.get()) {
+                previousClientMode = mode;
+                target = SuitModes.VISOR.get();
+            }
+        } else if (mode == SuitModes.VISOR.get()) {
+            // Release visor ? back to whatever we were in before
+            target = previousClientMode;
+        }
+        // --- THEN: only if we're NOT holding visor do we consider cloak ---
+        else {
+            if (cloakKeyDown && energy > 0f && mode != SuitModes.CLOAK.get() && !cloakBlocked) {
+                target = SuitModes.CLOAK.get();
+            } else if (!cloakKeyDown && mode == SuitModes.CLOAK.get()) {
+                // When cloak key is released, drop back to ARMOR
                 target = SuitModes.ARMOR.get();
             }
-
-            if (ModKeyBindings.VISOR_KEY.isDown()) {
-                if (energy > 0f && mode != SuitModes.VISOR.get()) {
-                    previousClientMode = mode;
-                    target = SuitModes.VISOR.get();
-                }
-            } else if (mode == SuitModes.VISOR.get()) {
-                target = previousClientMode;
+            // If you run out of energy in any non?ARMOR mode, auto?switch back:
+            if (mode != SuitModes.ARMOR.get() && energy <= 0f) {
+                target = SuitModes.ARMOR.get();
             }
         }
 
@@ -103,14 +110,15 @@ public class Nanosuit {
     }
 
     @OnlyIn(Dist.CLIENT)
-    private static void setClientMode(int mode, Player player) {
-        if (mode != SuitModes.CLOAK.get()){
-            currentClientMode = mode;
-            player.setData(ModAttachments.SUIT_MODE, mode);
-        }
-        PacketDistributor.sendToServer(new SuitModePacket(player.getId(), mode));
-        if (mode == SuitModes.VISOR.get()) {
-            reloadClientLighting();
+    private static void setClientMode(int newMode, Player player) {
+        int oldMode = currentClientMode;
+        currentClientMode = newMode;
+        player.setData(ModAttachments.SUIT_MODE, newMode);
+        PacketDistributor.sendToServer(new SuitModePacket(player.getId(), newMode));
+
+        // Only reload lighting once, if we're entering or exiting VISOR
+        if (oldMode == SuitModes.VISOR.get() || newMode == SuitModes.VISOR.get()) {
+            Minecraft.getInstance().levelRenderer.allChanged();
         }
     }
 
@@ -212,13 +220,24 @@ public class Nanosuit {
                     attacker.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
                     attacker.removeEffect(MobEffects.INVISIBILITY);
 
-                    PacketDistributor.sendToPlayer((ServerPlayer) attacker,
-                            new SuitModePacket(attacker.getId(), SuitModes.ARMOR.get()));
+                    PacketDistributor.sendToAllPlayers(new SuitModePacket(attacker.getId(), SuitModes.ARMOR.get()));
 
                     long cooldown = attackerHasGhostKill ? 500 : 1000;
                     cloakBreakTimestamps.put(attacker.getUUID(), System.currentTimeMillis() + cooldown);
-                    System.out.println("HELLOOOOOOOO");
                 }
+            }
+        }
+
+        if (target instanceof Player targetPlayer){
+            if (targetPlayer.getData(ModAttachments.SUIT_MODE) == SuitModes.CLOAK.get()){
+                targetPlayer.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
+                // Reduce energy because the player got hit while in cloak mode
+                //SuitUtils.tryDrainEnergy(targetPlayer, 20);
+                targetPlayer.removeEffect(MobEffects.INVISIBILITY);
+                int cooldown = 1000;
+                cloakBreakTimestamps.put(targetPlayer.getUUID(), System.currentTimeMillis() + cooldown);
+
+                PacketDistributor.sendToAllPlayers(new SuitModePacket(targetPlayer.getId(), SuitModes.ARMOR.get()));
             }
         }
     }
