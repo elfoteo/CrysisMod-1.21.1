@@ -1,5 +1,6 @@
 package com.elfoteo.tutorialmod.network.handlers;
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
+import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
 import com.elfoteo.tutorialmod.network.custom.*;
 import com.elfoteo.tutorialmod.network.custom.skills.GetAllSkillsPacket;
 import com.elfoteo.tutorialmod.network.custom.skills.ResetSkillsPacket;
@@ -7,6 +8,8 @@ import com.elfoteo.tutorialmod.network.custom.skills.SkillPointsPacket;
 import com.elfoteo.tutorialmod.network.custom.skills.UnlockSkillPacket;
 import com.elfoteo.tutorialmod.skill.Skill;
 import com.elfoteo.tutorialmod.skill.SkillState;
+import com.elfoteo.tutorialmod.util.SuitModes;
+import com.elfoteo.tutorialmod.util.SuitUtils;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -31,14 +34,41 @@ public class ServerPayloadHandler {
         }
     }
     public static void handleSuitModePacket(SuitModePacket packet, IPayloadContext context) {
-        // If a client sends to the server this packet means that the client is
-        // requesting data or he has changed his mode.
         if (context.player() instanceof ServerPlayer player) {
-            SuitModePacket newData = new SuitModePacket(
-                    player.getId(),
-                    packet.suitMode());
-            player.setData(ModAttachments.SUIT_MODE, packet.suitMode());
-            PacketDistributor.sendToAllPlayers(newData);
+            int requestedMode = packet.suitMode();
+            int currentMode = player.getData(ModAttachments.SUIT_MODE);
+
+            // Only handle full nanosuit wearers
+            if (!SuitUtils.isWearingFullNanosuit(player)) {
+            player.setData(ModAttachments.SUIT_MODE, SuitModes.NOT_EQUIPPED.get());
+                PacketDistributor.sendToPlayer(player,
+                        new SuitModePacket(player.getId(), SuitModes.NOT_EQUIPPED.get()));
+                return;
+            };
+
+            // If switching to CLOAK mode, validate conditions
+            if (requestedMode == SuitModes.CLOAK.get()) {
+                float energy = player.getData(ModAttachments.ENERGY);
+                long now = System.currentTimeMillis();
+                long blockedUntil = Nanosuit.cloakBreakTimestamps.getOrDefault(player.getUUID(), 0L);
+                boolean cloakBlocked = now < blockedUntil;
+
+                if (energy > 0f && currentMode != SuitModes.CLOAK.get() && !cloakBlocked) {
+                    player.setData(ModAttachments.SUIT_MODE, SuitModes.CLOAK.get());
+                    PacketDistributor.sendToPlayer(player,
+                            new SuitModePacket(player.getId(), SuitModes.CLOAK.get()));
+                }
+                else {
+                    PacketDistributor.sendToPlayer(player,
+                            new SuitModePacket(player.getId(), SuitModes.ARMOR.get()));
+                }
+                // else: do not send packet, cloak activation denied
+            } else {
+                // All other modes (ARMOR, VISOR, etc.) switch instantly
+                player.setData(ModAttachments.SUIT_MODE, requestedMode);
+                PacketDistributor.sendToPlayer(player,
+                        new SuitModePacket(player.getId(), requestedMode));
+            }
         }
     }
 

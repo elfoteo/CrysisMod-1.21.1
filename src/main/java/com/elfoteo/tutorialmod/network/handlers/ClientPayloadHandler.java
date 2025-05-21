@@ -1,6 +1,7 @@
 package com.elfoteo.tutorialmod.network.handlers;
 
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
+import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
 import com.elfoteo.tutorialmod.network.custom.*;
 import com.elfoteo.tutorialmod.network.custom.skills.GetAllSkillsPacket;
 import com.elfoteo.tutorialmod.network.custom.skills.ResetSkillsPacket;
@@ -39,6 +40,8 @@ public class ClientPayloadHandler {
         }
         context.enqueueWork(() -> {
             player.setData(ModAttachments.SUIT_MODE, packet.suitMode());
+            Nanosuit.previousClientMode = Nanosuit.currentClientMode;
+            Nanosuit.currentClientMode = packet.suitMode();
         });
     }
 

@@ -35,14 +35,14 @@ public enum Skill {
         240, -260,
         "nanosuit/dynamic_cloaking",
         "Dynamic Cloaking",
-        "Cloak only drains energy while moving.",
+        "Cloak drains 50% less energy while standing still.",
         new Skill[]{THERMAL_DAMPENERS}
     ),
     GHOST_KILL(
         240, -140,
         "nanosuit/ghost_kill",
         "Ghost Kill",
-        "Melee kills in stealth make no noise and do not break cloak.",
+        "Melee kills in stealth make no noise and do not break cloak, reduces also the cloak activation cooldown by .5s",
         new Skill[]{GROUND_SKIM}
     ),
     CLOAK_RECALL(
