@@ -45,7 +45,7 @@ public class RegenerationSystem {
 
         float currentEnergy = player.getData(ModAttachments.ENERGY);
         int maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
-        float maxRegenRate = player.getData(ModAttachments.MAX_ENERGY_REGEN);
+        float maxRegenRate = player.getData(ModAttachments.MAX_ENERGY_REGEN)*2; // Temporary, please remove the *2 in the future
 
         // Check if energy was used since the last tick
         float lastEnergy = previousEnergy.getOrDefault(uuid, currentEnergy);

@@ -282,23 +282,23 @@ public class ClientPowerJumpEvents {
         );
         poseStack.pushPose();
 
-        // Render trajectory line
-        for (int i = 0; i < arc.size() - 1; i++) {
-            Vec3 p0 = arc.get(i), p1 = arc.get(i+1);
-
-            // Gradually change color from yellow to red as we move along the path
-            float progress = (float)i / (arc.size() - 1);
-            float segR = R * (1 - progress) + TARGET_R * progress;
-            float segG = G * (1 - progress) + TARGET_G * progress;
-            float segB = B * (1 - progress) + TARGET_B * progress;
-
-            renderTubeSegment(
-                    poseStack, buf,
-                    new Vector3f((float)p0.x, (float)p0.y, (float)p0.z),
-                    new Vector3f((float)p1.x, (float)p1.y, (float)p1.z),
-                    SIDES, RADIUS, segR, segG, segB, A
-            );
-        }
+//        // Render trajectory line
+//        for (int i = 0; i < arc.size() - 1; i++) {
+//            Vec3 p0 = arc.get(i), p1 = arc.get(i+1);
+//
+//            // Gradually change color from yellow to red as we move along the path
+//            float progress = (float)i / (arc.size() - 1);
+//            float segR = R * (1 - progress) + TARGET_R * progress;
+//            float segG = G * (1 - progress) + TARGET_G * progress;
+//            float segB = B * (1 - progress) + TARGET_B * progress;
+//
+//            renderTubeSegment(
+//                    poseStack, buf,
+//                    new Vector3f((float)p0.x, (float)p0.y, (float)p0.z),
+//                    new Vector3f((float)p1.x, (float)p1.y, (float)p1.z),
+//                    SIDES, RADIUS, segR, segG, segB, A
+//            );
+//        }
 
         // Render landing marker if we have one
         if (landingPoint != null) {

@@ -35,36 +35,36 @@ public enum Skill {
         240, -260,
         "nanosuit/dynamic_cloaking",
         "Dynamic Cloaking",
-        "Cloak drains 50% less energy while standing still.",
+        "Cloak drains 25% less energy overall.",
         new Skill[]{THERMAL_DAMPENERS}
     ),
-    GHOST_KILL(
-        240, -140,
-        "nanosuit/ghost_kill",
-        "Ghost Kill",
-        "Melee kills in stealth make no noise and do not break cloak, reduces also the cloak activation cooldown by .5s",
+    PREDATORY_STRIKE(
+            240, -140,
+        "nanosuit/predatory_strike",
+        "Predatory Strike",
+        "Killing a target while cloaked regenerates 10 energy.",
         new Skill[]{GROUND_SKIM}
     ),
-    CLOAK_RECALL(
-        360, -200,
-        "nanosuit/cloak_recall",
-        "Cloak Recall",
-        "Automatically reactivates cloak 2s after taking light damage, if energy allows.",
-        new Skill[]{DYNAMIC_CLOAKING, GHOST_KILL}
+    GHOST_KILL(
+            360, -200,
+            "nanosuit/ghost_kill",
+            "Ghost Kill",
+            "Kills in stealth no longer break cloak, cloak activation cooldown in case the entity didn't die is reduced by 0.5s",
+            new Skill[]{DYNAMIC_CLOAKING, PREDATORY_STRIKE}
     ),
     GHOST_TITAN(
         480, -260,
         "nanosuit/ghost_titan",
         "Ghost Titan",
         "While cloaked, melee attacks deal bonus damage.",
-        new Skill[]{CLOAK_RECALL}
+        new Skill[]{GHOST_KILL}
     ),
     SHADOW_VEIL(
         480, -140,
         "nanosuit/shadow_veil",
         "Shadow Veil",
         "After a stealth kill, cloak duration is slightly extended.",
-        new Skill[]{CLOAK_RECALL}
+        new Skill[]{GHOST_KILL}
     ),
     VISOR_INSIGHT(
         600, -200,
@@ -73,6 +73,7 @@ public enum Skill {
         "In visor mode, mobs are highlighted by type (hostile, passive, etc.).",
         new Skill[]{GHOST_TITAN, SHADOW_VEIL}
     ),
+
 
     // === SPEED BRANCH ===
     SPRINT_BOOST(

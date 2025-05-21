@@ -6,6 +6,9 @@ import com.elfoteo.tutorialmod.item.*;
 import com.elfoteo.tutorialmod.gui.NanosuitOverlay;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageSources;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -65,53 +68,62 @@ public class SuitUtils {
         return player.getData(ModAttachments.SUIT_MODE) == SuitModes.ARMOR.get();
     }
 
-    /**
-     * Handles generic damage absorption in Armor mode.
-     * Absorbs 80% of damage by draining energy at 4x the damage.
-     * If energy is insufficient, absorb as much as possible.
-     * Returns the new damage value to apply.
-     */
-    public static float absorbDamage(Player player, float incomingDamage) {
-        if (!(isArmorMode(player) && isWearingFullNanosuit(player))) {
+    public static float absorbDamage(Player player, float incomingDamage, DamageSource source) {
+        if (!isArmorMode(player) || !isWearingFullNanosuit(player)) {
             return incomingDamage;
         }
 
-        float energy = player.getData(ModAttachments.ENERGY);
-        float maxAbsorbable = energy / 4f; // 1 damage costs 4 energy
-        float absorbableDamage = Math.min(incomingDamage, maxAbsorbable);
-        float energyToDrain = absorbableDamage * 4f;
+        float absorptionRate = 0.8f; // Default for general damage
+        float energyPerDamage = 1f;
 
-        if (energyToDrain > 0f) {
-            player.setData(ModAttachments.ENERGY, energy - energyToDrain);
+        if (source.is(DamageTypes.FALL)) {
+            absorptionRate = 1.0f;
+            energyPerDamage = 1.5f;
+        } else if (source.is(DamageTypes.IN_FIRE) || source.is(DamageTypes.ON_FIRE) || source.is(DamageTypes.LAVA)) {
+            absorptionRate = 1.0f;
+            energyPerDamage = 0.5f;
         }
 
-        float absorbed = absorbableDamage * 0.8f;
+        float absorbed = tryAbsorbDamage(player, incomingDamage, absorptionRate, energyPerDamage);
+
+        // Send updated armor info packet
+        ArmorInfoPacket packet = new ArmorInfoPacket(
+                player.getData(ModAttachments.ENERGY),
+                player.getData(ModAttachments.MAX_ENERGY),
+                player.getData(ModAttachments.MAX_ENERGY_REGEN),
+                player.getData(ModAttachments.SUIT_MODE)
+        );
+
+        if (player.level().isClientSide) {
+            PacketDistributor.sendToServer(packet);
+        } else {
+            PacketDistributor.sendToPlayer((ServerPlayer) player, packet);
+        }
+
         return incomingDamage - absorbed;
+    }
+
+    /**
+     * Attempts to absorb damage by draining energy.
+     * @param player Player entity
+     * @param damage Incoming damage
+     * @param absorptionRate Fraction of damage to absorb (e.g., 0.8f = 80%)
+     * @param energyPerDamage Energy cost per point of absorbed damage
+     * @return The amount of damage successfully absorbed
+     */
+    private static float tryAbsorbDamage(Player player, float damage, float absorptionRate, float energyPerDamage) {
+        float availableEnergy = getAvailableEnergy(player);
+        float absorbableDamage = Math.min(damage * absorptionRate, availableEnergy / energyPerDamage);
+        float energyCost = absorbableDamage * energyPerDamage;
+
+        if (absorbableDamage > 0) {
+            player.setData(ModAttachments.ENERGY, availableEnergy - energyCost);
+        }
+
+        return absorbableDamage;
     }
 
     private static float getAvailableEnergy(Player player) {
         return player.getData(ModAttachments.ENERGY);
-    }
-
-    /**
-     * Attempts to absorb fall damage in Armor mode.
-     * Drains energy at 1.5x the fall damage amount.
-     * Returns the amount of remaining damage that wasn't absorbed.
-     */
-    public static float absorbFallDamage(Player player, float fallDamage) {
-        if (!isArmorMode(player) || !isWearingFullNanosuit(player)) {
-            return fallDamage;
-        }
-
-        float drainAmount = fallDamage * 1.5f;
-        float availableEnergy = getAvailableEnergy(player); // You need this method
-        float absorbableDamage = Math.min(fallDamage, availableEnergy / 1.5f);
-        float energyToDrain = absorbableDamage * 1.5f;
-
-        if (absorbableDamage > 0) {
-            tryDrainEnergy(player, energyToDrain);
-        }
-
-        return fallDamage - absorbableDamage;
     }
 }

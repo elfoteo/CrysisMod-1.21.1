@@ -14,29 +14,23 @@ import com.elfoteo.tutorialmod.util.SuitModes;
 import com.elfoteo.tutorialmod.util.SuitUtils;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
-import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageSources;
-import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.Util;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
-import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
+import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -61,7 +55,6 @@ public class Nanosuit {
         Player player = Minecraft.getInstance().player;
         if (player == null) return;
 
-        // 1) bail out if suit not equipped
         if (!SuitUtils.isWearingFullNanosuit(player)) {
             if (currentClientMode != SuitModes.NOT_EQUIPPED.get()) {
                 setClientMode(SuitModes.NOT_EQUIPPED.get(), player);
@@ -80,25 +73,19 @@ public class Nanosuit {
         boolean visorKeyDown = ModKeyBindings.VISOR_KEY.isDown();
         boolean cloakKeyDown = ModKeyBindings.CLOAK_KEY.isDown();
 
-        // --- FIRST: VISOR takes absolute priority ---
         if (visorKeyDown && energy > 0f) {
             if (mode != SuitModes.VISOR.get()) {
                 previousClientMode = mode;
                 target = SuitModes.VISOR.get();
             }
         } else if (mode == SuitModes.VISOR.get()) {
-            // Release visor ? back to whatever we were in before
             target = previousClientMode;
-        }
-        // --- THEN: only if we're NOT holding visor do we consider cloak ---
-        else {
+        } else {
             if (cloakKeyDown && energy > 0f && mode != SuitModes.CLOAK.get() && !cloakBlocked) {
                 target = SuitModes.CLOAK.get();
             } else if (!cloakKeyDown && mode == SuitModes.CLOAK.get()) {
-                // When cloak key is released, drop back to ARMOR
                 target = SuitModes.ARMOR.get();
             }
-            // If you run out of energy in any non?ARMOR mode, auto?switch back:
             if (mode != SuitModes.ARMOR.get() && energy <= 0f) {
                 target = SuitModes.ARMOR.get();
             }
@@ -116,16 +103,9 @@ public class Nanosuit {
         player.setData(ModAttachments.SUIT_MODE, newMode);
         PacketDistributor.sendToServer(new SuitModePacket(player.getId(), newMode));
 
-        // Only reload lighting once, if we're entering or exiting VISOR
         if (oldMode == SuitModes.VISOR.get() || newMode == SuitModes.VISOR.get()) {
             Minecraft.getInstance().levelRenderer.allChanged();
         }
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    private static void reloadClientLighting() {
-        LevelRenderer renderer = Minecraft.getInstance().levelRenderer;
-        renderer.allChanged();
     }
 
     @SubscribeEvent
@@ -195,15 +175,13 @@ public class Nanosuit {
         Vec3 prev = previousPositions.getOrDefault(id, cur);
         double dx = cur.x - prev.x;
         double dz = cur.z - prev.z;
-        if (player.isSprinting()) return CLOAK_DRAIN_RUNNING;
-        if (dx * dx + dz * dz > 0.001) return CLOAK_DRAIN_MOVING;
-        if (player.getData(ModAttachments.ALL_SKILLS).get(Skill.DYNAMIC_CLOAKING).isUnlocked()){
-            return CLOAK_DRAIN_STILL / 2;
-        }
-        return CLOAK_DRAIN_STILL;
+        boolean dynamicCloaking = player.getData(ModAttachments.ALL_SKILLS).get(Skill.DYNAMIC_CLOAKING).isUnlocked();
+        if (player.isSprinting()) return CLOAK_DRAIN_RUNNING * (dynamicCloaking? 0.75f: 1);
+        if (dx * dx + dz * dz > 0.001) return CLOAK_DRAIN_MOVING * (dynamicCloaking? 0.75f: 1);
+        return CLOAK_DRAIN_STILL * (dynamicCloaking? 0.75f: 1);
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOW)
     public static void onLivingDamage(LivingDamageEvent.Post event) {
         LivingEntity target = event.getEntity();
         DamageSource source = event.getSource();
@@ -213,6 +191,7 @@ public class Nanosuit {
             int attackerMode = attacker.getData(ModAttachments.SUIT_MODE);
             boolean attackerInCloak = attackerMode == SuitModes.CLOAK.get();
             boolean attackerHasGhostKill = attacker.getData(ModAttachments.ALL_SKILLS).get(Skill.GHOST_KILL).isUnlocked();
+            boolean attackerHasPredatoryStrike = attacker.getData(ModAttachments.ALL_SKILLS).get(Skill.PREDATORY_STRIKE).isUnlocked();
             boolean targetWillDie = target.getHealth() - event.getNewDamage() <= 0 || target.isDeadOrDying();
 
             if (attackerInCloak) {
@@ -225,14 +204,28 @@ public class Nanosuit {
                     long cooldown = attackerHasGhostKill ? 500 : 1000;
                     cloakBreakTimestamps.put(attacker.getUUID(), System.currentTimeMillis() + cooldown);
                 }
+
+                // Handle energy refund from PREDATORY_STRIKE
+                if (attackerHasPredatoryStrike && targetWillDie) {
+                    float currentEnergy = attacker.getData(ModAttachments.ENERGY);
+                    float maxEnergy = attacker.getData(ModAttachments.MAX_ENERGY);
+                    float newEnergy = Math.min(maxEnergy, currentEnergy + 10f);
+                    attacker.setData(ModAttachments.ENERGY, newEnergy);
+
+                    PacketDistributor.sendToPlayer((ServerPlayer) attacker,
+                            new ArmorInfoPacket(
+                                    newEnergy,
+                                    (int) maxEnergy,
+                                    attacker.getData(ModAttachments.MAX_ENERGY_REGEN),
+                                    attacker.getData(ModAttachments.SUIT_MODE)
+                            ));
+                }
             }
         }
 
         if (target instanceof Player targetPlayer){
             if (targetPlayer.getData(ModAttachments.SUIT_MODE) == SuitModes.CLOAK.get()){
                 targetPlayer.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
-                // Reduce energy because the player got hit while in cloak mode
-                //SuitUtils.tryDrainEnergy(targetPlayer, 20);
                 targetPlayer.removeEffect(MobEffects.INVISIBILITY);
                 int cooldown = 1000;
                 cloakBreakTimestamps.put(targetPlayer.getUUID(), System.currentTimeMillis() + cooldown);
@@ -248,7 +241,25 @@ public class Nanosuit {
         if (target.getData(ModAttachments.SUIT_MODE) != SuitModes.ARMOR.get()) return;
 
         float originalDamage = event.getAmount();
-        float reducedDamage = SuitUtils.absorbDamage(target, originalDamage);
+        float reducedDamage = SuitUtils.absorbDamage(target, originalDamage, event.getSource());
         event.setAmount(reducedDamage);
+    }
+
+    @SubscribeEvent
+    public static void onEquipmentChange(LivingEquipmentChangeEvent event) {
+        if (event.getSlot().getType() == EquipmentSlot.Type.HUMANOID_ARMOR && event.getEntity() instanceof Player player) {
+            if (SuitUtils.isWearingFullNanosuit(player)){
+                player.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
+                if (player.level().isClientSide){
+                    currentClientMode = SuitModes.ARMOR.get();
+                }
+                else {
+                    PacketDistributor.sendToPlayer((ServerPlayer) player, new SuitModePacket(
+                            player.getId(),
+                            SuitModes.ARMOR.get()
+                    ));
+                }
+            }
+        }
     }
 }

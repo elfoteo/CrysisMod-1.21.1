@@ -34,10 +34,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(HumanoidArmorLayer.class)
 public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends HumanoidModel<T>, A extends HumanoidModel<T>> {
-    @Shadow
-    private void renderModel(PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, Model model,
-                             int dyeColor, ResourceLocation textureLocation) { }
-
     @Unique
     private static final ResourceLocation OVERLAY_TEXTURE = ResourceLocation.fromNamespaceAndPath(TutorialMod.MOD_ID,
             "textures/models/armor/nanosuit_overlay.png");
@@ -77,12 +73,12 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
                 } else {
                     // Other modes
                     switch (mode) {
-                        case ARMOR:
-                            r = 0.5f; g = 0.5f; b = 0.5f;
-                            break;
                         case CLOAK:
-                        default:
                             r = 0.6f; g = 0.8f; b = 1f;
+                            break;
+                        case ARMOR:
+                        default:
+                            r = 0.5f; g = 0.5f; b = 0.5f;
                             break;
                     }
 
