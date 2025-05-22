@@ -6,7 +6,6 @@ import com.elfoteo.tutorialmod.attachments.ModAttachments;
 import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
 import com.elfoteo.tutorialmod.util.SuitModes;
 import com.elfoteo.tutorialmod.util.SuitUtils;
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
@@ -50,7 +49,7 @@ public class NanosuitOverlay {
 
     private static float vignetteAlpha = 0f;
     private static boolean wasInCloakMode = false;
-    private static final float VIGNETTE_FADE_IN_TIME = .5f;
+    private static final float VIGNETTE_FADE_IN_TIME = .3f;
 
     @SubscribeEvent
     public static void onRenderHUD(RenderGuiLayerEvent.Pre event) {
@@ -84,7 +83,7 @@ public class NanosuitOverlay {
         wasInCloakMode = inCloak;
 
         if (inCloak) {
-            vignetteAlpha = Mth.clamp(vignetteAlpha + (dt / VIGNETTE_FADE_IN_TIME) * 0.5f, 0f, 0.5f);
+            vignetteAlpha = Mth.clamp(vignetteAlpha + (dt / VIGNETTE_FADE_IN_TIME) * 0.5f, 0f, 1f);
         } else {
             vignetteAlpha = 0f;
         }
@@ -98,25 +97,28 @@ public class NanosuitOverlay {
         drawModeFill(gui, baseX, baseY);
     }
 
-    private static void renderCloakVignette(GuiGraphics guiGraphics, int sw, int sh, float alpha) {
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(false);
+    private static void renderCloakVignette(GuiGraphics guiGraphics, int width, int height, float alpha) {
         RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(
-                GlStateManager.SourceFactor.ZERO.value,
-                GlStateManager.DestFactor.ONE_MINUS_SRC_COLOR.value,
-                GlStateManager.SourceFactor.ONE.value,
-                GlStateManager.DestFactor.ZERO.value
-        );
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
 
-        guiGraphics.setColor(alpha, alpha, alpha, 1.0F);
-        guiGraphics.blit(VIGNETTE_TEXTURE, 0, 0, -90, 0f, 0f, sw, sh, sw, sh);
+        Minecraft mc = Minecraft.getInstance();
+        mc.getTextureManager().bindForSetup(NanosuitOverlay.VIGNETTE_TEXTURE);
+        RenderSystem.setShaderTexture(0, NanosuitOverlay.VIGNETTE_TEXTURE);
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.enableBlend();
 
-        RenderSystem.depthMask(true);
-        RenderSystem.enableDepthTest();
-        guiGraphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.defaultBlendFunc();
+        PoseStack poseStack = guiGraphics.pose();
+        Matrix4f matrix = poseStack.last().pose();
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+
+        builder.addVertex(matrix, 0, 0, 0).setUv(0, 0);
+        builder.addVertex(matrix, 0, height, 0).setUv(0, 1f);
+        builder.addVertex(matrix, width, height, 0).setUv(1f, 1f);
+        builder.addVertex(matrix, width, 0, 0).setUv(1f, 0);
+
+        BufferUploader.drawWithShader(builder.buildOrThrow());
         RenderSystem.disableBlend();
+
     }
 
     private static void drawEnergyBar(GuiGraphics gui, int baseX, int baseY, float fraction) {
