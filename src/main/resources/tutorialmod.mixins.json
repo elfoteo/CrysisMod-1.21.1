@@ -27,6 +27,7 @@
     "nanosuit.NanosuitNoParticles",
     "nanosuit.NanosuitNoShadow",
     "nanosuit.NanosuitPlayerRenderer",
+    "nanosuit.upgrades.LocalPlayerMixin",
     "particles.ParticleEngineMixin"
   ],
   "injectors": {

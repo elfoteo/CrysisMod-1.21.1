@@ -9,14 +9,17 @@ import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.targeting.TargetingConditions;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.*;
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -141,7 +144,10 @@ public class ClientPowerJumpEvents {
         float charge = getCurrentJumpCharge(player);
         if (charge <= 0f) return;
 
-        double playerHeight = player.getBbHeight();
+        // Player dimensions (not crouching)
+        double playerWidth = 0.6; // Standard player width
+        double playerHeight = 1.8; // Standard player height (not crouching)
+
         // Start at body center instead of feet:
         Vec3 initialBody = player.position().add(0, playerHeight / 2, 0);
         Vec3 currentPos = initialBody;
@@ -188,41 +194,40 @@ public class ClientPowerJumpEvents {
                     currentVel.z * AIR_DRAG_HORIZONTAL
             );
 
-            // Calculate next position
-            Vec3 nextPos = currentPos.add(currentVel);
+            // Calculate next position with proper collision detection
+            Vec3 nextPos = simulateMovementWithCollision(world, player, currentPos, currentVel, playerWidth, playerHeight);
+
+            // Check if movement was blocked (collision occurred)
+            Vec3 actualMovement = nextPos.subtract(currentPos);
+
+            // Update velocity based on actual movement (handle axis-specific stopping)
+            if (Math.abs(actualMovement.x) < Math.abs(currentVel.x) * 0.1) {
+                currentVel = new Vec3(0, currentVel.y, currentVel.z); // Stop X movement
+            }
+            if (Math.abs(actualMovement.z) < Math.abs(currentVel.z) * 0.1) {
+                currentVel = new Vec3(currentVel.x, currentVel.y, 0); // Stop Z movement
+            }
+            if (Math.abs(actualMovement.y) < Math.abs(currentVel.y) * 0.1) {
+                currentVel = new Vec3(currentVel.x, 0, currentVel.z); // Stop Y movement
+            }
 
             // Check for ground collision
             int gx = Mth.floor(nextPos.x);
             int gz = Mth.floor(nextPos.z);
             double groundY = world.getHeight(Heightmap.Types.MOTION_BLOCKING, gx, gz);
-            if (nextPos.y <= groundY + 0.01) {
+            if (nextPos.y - playerHeight/2 <= groundY + 0.01) {
                 landingPoint = new Vec3(nextPos.x, groundY, nextPos.z).subtract(camPos);
-                arc.add(landingPoint);
-                break;
-            }
-
-            // Check for block collisions (both feet and head level)
-            Vec3 footStart = currentPos;
-            Vec3 footEnd = nextPos;
-            Vec3 headStart = currentPos.add(0, playerHeight, 0);
-            Vec3 headEnd = nextPos.add(0, playerHeight, 0);
-            BlockHitResult footHit = world.clip(new ClipContext(
-                    footStart, footEnd,
-                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player
-            ));
-            BlockHitResult headHit = world.clip(new ClipContext(
-                    headStart, headEnd,
-                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player
-            ));
-            BlockHitResult hit = footHit.getType() == HitResult.Type.BLOCK ? footHit : headHit.getType() == HitResult.Type.BLOCK ? headHit : null;
-            if (hit != null) {
-                landingPoint = hit.getLocation().subtract(camPos);
                 arc.add(landingPoint);
                 break;
             }
 
             currentPos = nextPos;
             arc.add(currentPos.subtract(camPos));
+
+            // If velocity is essentially zero, we're stuck
+            if (currentVel.lengthSqr() < 0.001) {
+                break;
+            }
         }
 
         // If we didn't find a landing point, simulate falling straight down
@@ -242,12 +247,12 @@ public class ClientPowerJumpEvents {
                 // Apply vertical air drag
                 fallVel = new Vec3(0, fallVel.y * AIR_DRAG_VERTICAL, 0);
 
-                Vec3 nextFallPos = fallPos.add(fallVel);
+                Vec3 nextFallPos = simulateMovementWithCollision(world, player, fallPos, fallVel, playerWidth, playerHeight);
 
                 int gx = Mth.floor(fallPos.x);
                 int gz = Mth.floor(fallPos.z);
                 double groundY = world.getHeight(Heightmap.Types.MOTION_BLOCKING, gx, gz);
-                if (nextFallPos.y <= groundY + 0.01) {
+                if (nextFallPos.y - playerHeight/2 <= groundY + 0.01) {
                     landingPoint = new Vec3(fallPos.x, groundY, fallPos.z).subtract(camPos);
                     arc.add(landingPoint);
                     break;
@@ -276,29 +281,12 @@ public class ClientPowerJumpEvents {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.depthMask(false);
+        RenderSystem.disableDepthTest();
         BufferBuilder buf = Tesselator.getInstance().begin(
                 VertexFormat.Mode.TRIANGLES,
                 DefaultVertexFormat.POSITION_COLOR_NORMAL
         );
         poseStack.pushPose();
-
-//        // Render trajectory line
-//        for (int i = 0; i < arc.size() - 1; i++) {
-//            Vec3 p0 = arc.get(i), p1 = arc.get(i+1);
-//
-//            // Gradually change color from yellow to red as we move along the path
-//            float progress = (float)i / (arc.size() - 1);
-//            float segR = R * (1 - progress) + TARGET_R * progress;
-//            float segG = G * (1 - progress) + TARGET_G * progress;
-//            float segB = B * (1 - progress) + TARGET_B * progress;
-//
-//            renderTubeSegment(
-//                    poseStack, buf,
-//                    new Vector3f((float)p0.x, (float)p0.y, (float)p0.z),
-//                    new Vector3f((float)p1.x, (float)p1.y, (float)p1.z),
-//                    SIDES, RADIUS, segR, segG, segB, A
-//            );
-//        }
 
         // Render landing marker if we have one
         if (landingPoint != null) {
@@ -338,10 +326,96 @@ public class ClientPowerJumpEvents {
             }
         }
 
-        BufferUploader.drawWithShader(buf.build());
+        BufferUploader.drawWithShader(buf.buildOrThrow());
         RenderSystem.depthMask(true);
+        RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
 
         poseStack.popPose();
+    }
+
+    /**
+     * Simulates movement with proper collision detection for the full player hitbox
+     * Returns the actual position after collision resolution
+     */
+    private static Vec3 simulateMovementWithCollision(Level world, Player player, Vec3 currentPos, Vec3 velocity, double playerWidth, double playerHeight) {
+        // Create AABB for player at current position
+        double halfWidth = playerWidth / 2.0;
+        double halfHeight = playerHeight / 2.0;
+
+        Vec3 targetPos = currentPos.add(velocity);
+
+        // Check collision for each axis separately (X, Y, Z)
+        Vec3 resultPos = currentPos;
+
+        // X-axis movement
+        if (Math.abs(velocity.x) > 0.001) {
+            Vec3 testPos = new Vec3(targetPos.x, resultPos.y, resultPos.z);
+            if (!hasCollision(world, player, testPos, halfWidth, halfHeight)) {
+                resultPos = testPos;
+            }
+        }
+
+        // Y-axis movement
+        if (Math.abs(velocity.y) > 0.001) {
+            Vec3 testPos = new Vec3(resultPos.x, targetPos.y, resultPos.z);
+            if (!hasCollision(world, player, testPos, halfWidth, halfHeight)) {
+                resultPos = testPos;
+            }
+        }
+
+        // Z-axis movement
+        if (Math.abs(velocity.z) > 0.001) {
+            Vec3 testPos = new Vec3(resultPos.x, resultPos.y, targetPos.z);
+            if (!hasCollision(world, player, testPos, halfWidth, halfHeight)) {
+                resultPos = testPos;
+            }
+        }
+
+        return resultPos;
+    }
+
+    /**
+     * Checks if the player hitbox at the given position would collide with blocks
+     */
+    private static boolean hasCollision(Level world, Player player, Vec3 pos, double halfWidth, double halfHeight) {
+        // Create AABB for player at test position
+        AABB playerBB = new AABB(
+                pos.x - halfWidth, pos.y - halfHeight, pos.z - halfWidth,
+                pos.x + halfWidth, pos.y + halfHeight, pos.z + halfWidth
+        );
+
+        // Get all block positions that could intersect with player
+        int minX = Mth.floor(playerBB.minX);
+        int maxX = Mth.floor(playerBB.maxX);
+        int minY = Mth.floor(playerBB.minY);
+        int maxY = Mth.floor(playerBB.maxY);
+        int minZ = Mth.floor(playerBB.minZ);
+        int maxZ = Mth.floor(playerBB.maxZ);
+
+        // Check each block position for collision
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    BlockPos blockPos = new BlockPos(x, y, z);
+                    BlockState blockState = world.getBlockState(blockPos);
+
+                    if (!blockState.isAir()) {
+                        VoxelShape blockShape = blockState.getCollisionShape(world, blockPos);
+                        if (!blockShape.isEmpty()) {
+                            // Transform block shape to world coordinates
+                            AABB blockBB = blockShape.bounds().move(blockPos);
+
+                            // Check if player AABB intersects with block AABB
+                            if (playerBB.intersects(blockBB)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 }
