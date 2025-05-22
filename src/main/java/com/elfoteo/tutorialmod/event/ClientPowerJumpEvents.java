@@ -10,10 +10,8 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -21,6 +19,7 @@ import net.minecraft.world.phys.*;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -39,42 +38,64 @@ public class ClientPowerJumpEvents {
         return jumpChargeMap.getOrDefault(player, 0f);
     }
 
+    private static final Set<UUID> approvedJumpers = new HashSet<>();
+
+
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
-        if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
         Player player = event.getEntity();
         if (player != Minecraft.getInstance().player) return;
+
+        if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
+
         float charge = getCurrentJumpCharge(player);
         if (player.isCrouching() && player.onGround()) {
             charge = Math.min(1f, charge + (1f - charge) * 0.35f + 0.15f);
-
         } else {
             charge = Math.max(0f, charge - 0.1f);
         }
+
         jumpChargeMap.put(player, charge);
     }
 
     @SubscribeEvent
     public static void onLivingJump(LivingEvent.LivingJumpEvent event) {
+        if (event.getEntity().level().isClientSide) return;
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!player.isCrouching()) return;
         if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
-        if (!(event.getEntity() instanceof Player player)) return;
-        if (player != Minecraft.getInstance().player || !player.isCrouching()) return;
+
         float charge = getCurrentJumpCharge(player);
         if (!SuitUtils.tryDrainEnergy(player, JUMP_COST)) return;
 
-        float pitch = player.getXRot() * (float)Math.PI / 180f;
-        float yaw   = player.getYRot() * (float)Math.PI / 180f;
+        approvedJumpers.add(player.getUUID()); // Allow client to perform jump
+        jumpChargeMap.put(player, 0f);
+    }
+    @OnlyIn(Dist.CLIENT)
+    @SubscribeEvent
+    public static void onClientJump(LivingEvent.LivingJumpEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (player != Minecraft.getInstance().player) return;
+        if (!player.isCrouching()) return;
+        if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
+
+        float charge = getCurrentJumpCharge(player);
+
+        float pitch = player.getXRot() * ((float)Math.PI / 180f);
+        float yaw   = player.getYRot() * ((float)Math.PI / 180f);
         float vY    = Mth.clamp((-Mth.sin(pitch) * 0.8f + 1f) * charge, 0f, Float.MAX_VALUE);
         float horiz = Mth.cos(pitch) * charge * 1.5f;
+
         Vec3 vel = player.getDeltaMovement();
         player.setDeltaMovement(
                 vel.x + -Mth.sin(yaw) * horiz,
                 vY,
-                vel.z +  Mth.cos(yaw) * horiz
+                vel.z + Mth.cos(yaw) * horiz
         );
+
         player.hasImpulse = true;
-        jumpChargeMap.put(player, 0f);
     }
+
 
     private static void addVertex(VertexConsumer buffer, PoseStack.Pose pose,
                                   Vector3f pos, Vector3f normal,
@@ -351,7 +372,7 @@ public class ClientPowerJumpEvents {
         // X-axis movement
         if (Math.abs(velocity.x) > 0.001) {
             Vec3 testPos = new Vec3(targetPos.x, resultPos.y, resultPos.z);
-            if (!hasCollision(world, player, testPos, halfWidth, halfHeight)) {
+            if (hasntCollision(world, player, testPos, halfWidth, halfHeight)) {
                 resultPos = testPos;
             }
         }
@@ -359,7 +380,7 @@ public class ClientPowerJumpEvents {
         // Y-axis movement
         if (Math.abs(velocity.y) > 0.001) {
             Vec3 testPos = new Vec3(resultPos.x, targetPos.y, resultPos.z);
-            if (!hasCollision(world, player, testPos, halfWidth, halfHeight)) {
+            if (hasntCollision(world, player, testPos, halfWidth, halfHeight)) {
                 resultPos = testPos;
             }
         }
@@ -367,7 +388,7 @@ public class ClientPowerJumpEvents {
         // Z-axis movement
         if (Math.abs(velocity.z) > 0.001) {
             Vec3 testPos = new Vec3(resultPos.x, resultPos.y, targetPos.z);
-            if (!hasCollision(world, player, testPos, halfWidth, halfHeight)) {
+            if (hasntCollision(world, player, testPos, halfWidth, halfHeight)) {
                 resultPos = testPos;
             }
         }
@@ -375,10 +396,7 @@ public class ClientPowerJumpEvents {
         return resultPos;
     }
 
-    /**
-     * Checks if the player hitbox at the given position would collide with blocks
-     */
-    private static boolean hasCollision(Level world, Player player, Vec3 pos, double halfWidth, double halfHeight) {
+    private static boolean hasntCollision(Level world, Player player, Vec3 pos, double halfWidth, double halfHeight) {
         // Create AABB for player at test position
         AABB playerBB = new AABB(
                 pos.x - halfWidth, pos.y - halfHeight, pos.z - halfWidth,
@@ -408,7 +426,7 @@ public class ClientPowerJumpEvents {
 
                             // Check if player AABB intersects with block AABB
                             if (playerBB.intersects(blockBB)) {
-                                return true;
+                                return false;
                             }
                         }
                     }
@@ -416,6 +434,6 @@ public class ClientPowerJumpEvents {
             }
         }
 
-        return false;
+        return true;
     }
 }

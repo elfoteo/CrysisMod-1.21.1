@@ -235,7 +235,7 @@ public class Nanosuit {
         }
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onIncomingDamage(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof Player target) || target.level().isClientSide()) return;
         if (target.getData(ModAttachments.SUIT_MODE) != SuitModes.ARMOR.get()) return;

@@ -44,17 +44,17 @@ public class ModItems {
             () -> new HammerItem(ModToolTiers.BISMUTH, new Item.Properties()
                     .attributes(PickaxeItem.createAttributes(ModToolTiers.BISMUTH, 7F, -3.5f))));
     public static final DeferredItem<ArmorItem> NANOSUIT_HELMET = ITEMS.register("nanosuit_helmet",
-            () -> new ModArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.HELMET,
-                    new Item.Properties().durability(ArmorItem.Type.HELMET.getDurability(19))));
+            () -> new NanosuitArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.HELMET,
+                    new Item.Properties()));
     public static final DeferredItem<ArmorItem> NANOSUIT_CHESTPLATE = ITEMS.register("nanosuit_chestplate",
             () -> new ArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.CHESTPLATE,
-                    new Item.Properties().durability(ArmorItem.Type.CHESTPLATE.getDurability(19))));
+                    new Item.Properties()));
     public static final DeferredItem<ArmorItem> NANOSUIT_LEGGINGS = ITEMS.register("nanosuit_leggings",
             () -> new ArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.LEGGINGS,
-                    new Item.Properties().durability(ArmorItem.Type.LEGGINGS.getDurability(19))));
+                    new Item.Properties()));
     public static final DeferredItem<ArmorItem> NANOSUIT_BOOTS = ITEMS.register("nanosuit_boots",
             () -> new ArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.BOOTS,
-                    new Item.Properties().durability(ArmorItem.Type.BOOTS.getDurability(19))));
+                    new Item.Properties()));
     public static final DeferredItem<Item> BISMUTH_HORSE_ARMOR = ITEMS.register("bismuth_horse_armor",
             () -> new AnimalArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, AnimalArmorItem.BodyType.EQUESTRIAN,
                     false, new Item.Properties().stacksTo(1)));

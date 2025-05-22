@@ -12,14 +12,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import java.util.List;
 import java.util.Map;
-public class ModArmorItem extends ArmorItem {
-    private static final Map<Holder<ArmorMaterial>, List<MobEffectInstance>> MATERIAL_TO_EFFECT_MAP = (new ImmutableMap.Builder<Holder<ArmorMaterial>, List<MobEffectInstance>>())
-            .put(ModArmorMaterials.NANOSUIT_COMPOSITE,
-                    List.of(new MobEffectInstance(MobEffects.JUMP, 200, 0, false, false)))
-            .build();
-    public ModArmorItem(Holder<ArmorMaterial> material, Type type, Properties properties) {
+public class NanosuitArmorItem extends ArmorItem {
+    private static final Map<Holder<ArmorMaterial>, List<MobEffectInstance>> MATERIAL_TO_EFFECT_MAP =
+            (new ImmutableMap.Builder<Holder<ArmorMaterial>, List<MobEffectInstance>>()).build();
+    public NanosuitArmorItem(Holder<ArmorMaterial> material, Type type, Properties properties) {
         super(material, type, properties);
     }
+
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
         if (entity instanceof Player player && !level.isClientSide() && hasFullSuitOfArmorOn(player)) {

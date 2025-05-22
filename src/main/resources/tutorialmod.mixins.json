@@ -4,7 +4,6 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "nanosuit.upgrades.NanosuitNoSoundMixin",
-    ,
     "nanosuit.upgrades.NanosuitNoVibrations"
   ],
   "client": [
@@ -27,7 +26,6 @@
     "nanosuit.NanosuitNoParticles",
     "nanosuit.NanosuitNoShadow",
     "nanosuit.NanosuitPlayerRenderer",
-    "nanosuit.upgrades.NanosuitDashJetMixin",
     "particles.ParticleEngineMixin"
   ],
   "injectors": {

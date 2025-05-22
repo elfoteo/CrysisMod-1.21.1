@@ -123,6 +123,7 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
             if (Nanosuit.currentClientMode == SuitModes.VISOR.get()) {
                 VertexConsumer vertexConsumer = buffer.getBuffer(InfraredShader.infraredArmorCutoutNoCull(textureLocation));
                 model.renderToBuffer(poseStack, vertexConsumer, packedLight, OverlayTexture.NO_OVERLAY, dyeColor);
+                ci.cancel();
             }
         }
     }

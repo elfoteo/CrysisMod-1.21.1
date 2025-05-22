@@ -5,6 +5,8 @@ import com.elfoteo.tutorialmod.network.custom.ArmorInfoPacket;
 import com.elfoteo.tutorialmod.item.*;
 import com.elfoteo.tutorialmod.gui.NanosuitOverlay;
 
+import com.elfoteo.tutorialmod.skill.Skill;
+import com.elfoteo.tutorialmod.skill.SkillData;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageSources;
@@ -73,20 +75,33 @@ public class SuitUtils {
             return incomingDamage;
         }
 
-        float absorptionRate = 0.8f; // Default for general damage
-        float energyPerDamage = 1f;
+        float absorptionRate = 0.8f; // Default absorption rate
+        float energyPerDamage = 1f;  // Energy cost per absorbed damage
 
         if (source.is(DamageTypes.FALL)) {
-            absorptionRate = 1.0f;
             energyPerDamage = 1.5f;
+            if (SkillData.isUnlocked(Skill.GROUND_SKIN, player)) {
+                absorptionRate = 1.0f;
+            } else {
+                absorptionRate = 0.0f;
+            }
         } else if (source.is(DamageTypes.IN_FIRE) || source.is(DamageTypes.ON_FIRE) || source.is(DamageTypes.LAVA)) {
             absorptionRate = 1.0f;
             energyPerDamage = 0.5f;
         }
 
+        // Fortified Core effect: reduce energy cost if below 30% health
+        if (SkillData.isUnlocked(Skill.FORTIFIED_CORE, player)) {
+            float currentHealth = player.getHealth();
+            float maxHealth = player.getMaxHealth();
+            if (currentHealth <= maxHealth * 0.3f) {
+                energyPerDamage *= 0.8f; // Reduce energy cost by 20%
+            }
+        }
+
         float absorbed = tryAbsorbDamage(player, incomingDamage, absorptionRate, energyPerDamage);
 
-        // Send updated armor info packet
+        // Send updated energy status
         ArmorInfoPacket packet = new ArmorInfoPacket(
                 player.getData(ModAttachments.ENERGY),
                 player.getData(ModAttachments.MAX_ENERGY),
