@@ -74,30 +74,22 @@ public class NanosuitSkillTree extends Screen {
     protected void init() {
         super.init();
 
-        // 1) Ask server for current skill data
         PacketDistributor.sendToServer(new SkillPointsPacket(0, 0));
         PacketDistributor.sendToServer(new GetAllSkillsPacket(new HashMap<>()));
 
         if (!initialized) {
-            // 2) Compute all (x,y) positions in one go:
+            // simplified DAG layout:
             skillCoords = computeSkillCoordinates();
 
-            // 3) Build each SkillNode from those coords
             for (Skill s : Skill.values()) {
                 Point p = skillCoords.get(s);
                 nodeMap.put(s, new SkillNode(s, p.x, p.y));
             }
-
-            // 4) Build connections (parent → child) so we can draw lines
             for (Skill child : Skill.values()) {
                 for (Skill parent : child.getParents()) {
-                    SkillNode pNode = nodeMap.get(parent);
-                    SkillNode cNode = nodeMap.get(child);
-                    connections.add(new Connection(pNode, cNode));
+                    connections.add(new Connection(nodeMap.get(parent), nodeMap.get(child)));
                 }
             }
-
-            // 5) Finally, center everything on-screen
             computeInitialScroll();
             initialized = true;
         }
@@ -126,141 +118,135 @@ public class NanosuitSkillTree extends Screen {
                         .build()
         );
     }
-
     /**
-     * Completely redesigned coordinate computation algorithm to properly handle complex skill trees.
-     * This approach:
-     * 1. Computes depths for all skills (taking max path length if multiple paths exist)
-     * 2. Assigns horizontal positions based on depth
-     * 3. Assigns vertical positions to create proper branching structures
-     * 4. Handles multi-parent nodes by ensuring proper spacing
+     * Computes the (x,y) coordinates for each skill in a clean DAG layout.
+     * Each branch flows horizontally by depth, with branches stacked vertically
+     * to avoid intersections. Skills that merge branches are centered between them.
      */
     private Map<Skill, Point> computeSkillCoordinates() {
-        // Create a map to store the final coordinates
-        Map<Skill, Point> coords = new EnumMap<>(Skill.class);
+        Map<Skill, Point> coords = new HashMap<>();
 
-        // Build parent->child and child->parent maps for easier traversal
-        Map<Skill, List<Skill>> childrenMap = buildChildrenMap();
-        Map<Skill, List<Skill>> parentMap = buildParentMap();
+        // Step 1: Calculate depth (distance from root) for each skill
+        Map<Skill, Integer> depths = calculateDepths();
 
-        // Find all root skills (skills with no parents)
-        List<Skill> roots = new ArrayList<>();
-        for (Skill s : Skill.values()) {
-            if (s.getParents().length == 0) {
-                roots.add(s);
+        // Step 2: Group skills by branch and depth
+        Map<Skill.Branch, Map<Integer, List<Skill>>> branchDepthMap = new HashMap<>();
+        for (Skill.Branch branch : Skill.Branch.values()) {
+            branchDepthMap.put(branch, new HashMap<>());
+        }
+
+        // Group skills by their primary branch and depth
+        for (Skill skill : Skill.values()) {
+            int depth = depths.get(skill);
+            Skill.Branch branch = skill.getBranch();
+
+            branchDepthMap.get(branch)
+                    .computeIfAbsent(depth, k -> new ArrayList<>())
+                    .add(skill);
+        }
+
+        // Step 3: Assign Y positions for each branch (vertical separation)
+        int branchYOffset = 0;
+        Map<Skill.Branch, Integer> branchBaseY = new HashMap<>();
+
+        for (Skill.Branch branch : Skill.Branch.values()) {
+            branchBaseY.put(branch, branchYOffset);
+
+            // Calculate how much vertical space this branch needs
+            int maxSkillsAtDepth = 0;
+            for (List<Skill> skillsAtDepth : branchDepthMap.get(branch).values()) {
+                maxSkillsAtDepth = Math.max(maxSkillsAtDepth, skillsAtDepth.size());
+            }
+
+            // Move to next branch position (with padding)
+            branchYOffset += (maxSkillsAtDepth * V_SPACING) + V_SPACING * 2; // Extra padding between branches
+        }
+
+        // Step 4: Position skills within each branch
+        for (Skill.Branch branch : Skill.Branch.values()) {
+            Map<Integer, List<Skill>> depthMap = branchDepthMap.get(branch);
+            int baseY = branchBaseY.get(branch);
+
+            for (Map.Entry<Integer, List<Skill>> entry : depthMap.entrySet()) {
+                int depth = entry.getKey();
+                List<Skill> skillsAtDepth = entry.getValue();
+
+                // X position based on depth
+                int x = depth * H_SPACING;
+
+                // Y positions - center the skills at this depth
+                int totalHeight = (skillsAtDepth.size() - 1) * V_SPACING;
+                int startY = baseY - totalHeight / 2;
+
+                for (int i = 0; i < skillsAtDepth.size(); i++) {
+                    Skill skill = skillsAtDepth.get(i);
+                    int y = startY + (i * V_SPACING);
+                    coords.put(skill, new Point(x, y));
+                }
             }
         }
 
-        // Sort roots alphabetically for consistent layout
-        roots.sort(Comparator.comparing(Skill::getTitle));
+        // Step 5: Handle cross-branch connections (skills that merge branches)
+        // Find skills that have parents from different branches
+        for (Skill skill : Skill.values()) {
+            Skill[] parents = skill.getParents();
+            if (parents.length > 1) {
+                Set<Skill.Branch> parentBranches = new HashSet<>();
+                for (Skill parent : parents) {
+                    parentBranches.add(parent.getBranch());
+                }
 
-        // Step 1: Compute optimal depths for all skills (longest path from any root)
-        Map<Skill, Integer> depths = computeOptimalDepths(roots, childrenMap);
+                // If this skill connects multiple branches, center it between them
+                if (parentBranches.size() > 1) {
+                    // Calculate average Y position of all parents
+                    int totalY = 0;
+                    for (Skill parent : parents) {
+                        totalY += coords.get(parent).y;
+                    }
+                    int avgY = totalY / parents.length;
 
-        // Step 2: Group skills by their depth level
-        Map<Integer, List<Skill>> skillsByDepth = new HashMap<>();
-        for (Skill s : Skill.values()) {
-            int depth = depths.get(s);
-            skillsByDepth.computeIfAbsent(depth, k -> new ArrayList<>()).add(s);
+                    // Keep the X position based on depth, but center Y between parent branches
+                    Point currentPos = coords.get(skill);
+                    coords.put(skill, new Point(currentPos.x, avgY));
+                }
+            }
         }
-
-        // Sort skills at each depth by title for consistency
-        for (List<Skill> levelSkills : skillsByDepth.values()) {
-            levelSkills.sort(Comparator.comparing(Skill::getTitle));
-        }
-
-        // Step 3: Assign x-coordinates based on depth
-        for (Skill s : Skill.values()) {
-            int depth = depths.get(s);
-            int x = depth * H_SPACING;
-            // Initialize with temporary y = 0, will be adjusted later
-            coords.put(s, new Point(x, 0));
-        }
-
-        // Step 4: Compute proper y-coordinates using a branch-aware layout algorithm
-        int maxDepth = skillsByDepth.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
-        assignVerticalPositions(roots, childrenMap, parentMap, coords, depths, maxDepth);
-
-        // Step 5: Post-process to resolve any remaining overlaps
-        resolveVerticalOverlaps(coords, depths);
 
         return coords;
     }
 
-
     /**
-     * Builds a map of parent -> children relationships
+     * Calculate the depth (distance from root nodes) for each skill using BFS.
+     * Root nodes (skills with no parents) have depth 0.
      */
-    private Map<Skill, List<Skill>> buildChildrenMap() {
-        Map<Skill, List<Skill>> childrenMap = new EnumMap<>(Skill.class);
+    private Map<Skill, Integer> calculateDepths() {
+        Map<Skill, Integer> depths = new HashMap<>();
+        Queue<Skill> queue = new LinkedList<>();
 
-        // Initialize empty lists for all skills
-        for (Skill s : Skill.values()) {
-            childrenMap.put(s, new ArrayList<>());
-        }
-
-        // Populate children lists
-        for (Skill s : Skill.values()) {
-            for (Skill parent : s.getParents()) {
-                childrenMap.get(parent).add(s);
+        // Find root nodes (skills with no parents)
+        for (Skill skill : Skill.values()) {
+            if (skill.getParents().length == 0) {
+                depths.put(skill, 0);
+                queue.add(skill);
             }
         }
 
-        return childrenMap;
-    }
+        // BFS to calculate depths
+        while (!queue.isEmpty()) {
+            Skill current = queue.poll();
+            int currentDepth = depths.get(current);
 
-    /**
-     * Builds a map of child -> parents relationships
-     */
-    private Map<Skill, List<Skill>> buildParentMap() {
-        Map<Skill, List<Skill>> parentMap = new EnumMap<>(Skill.class);
-
-        // Initialize empty lists for all skills
-        for (Skill s : Skill.values()) {
-            parentMap.put(s, new ArrayList<>());
-        }
-
-        // Populate parent lists
-        for (Skill s : Skill.values()) {
-            Collections.addAll(parentMap.get(s), s.getParents());
-        }
-
-        return parentMap;
-    }
-
-    /**
-     * Computes the optimal depth for each skill by finding the longest path from any root.
-     * This ensures that skills with multiple parents are placed at the correct depth.
-     */
-    private Map<Skill, Integer> computeOptimalDepths(List<Skill> roots, Map<Skill, List<Skill>> childrenMap) {
-        Map<Skill, Integer> depths = new EnumMap<>(Skill.class);
-
-        // Initialize all depths to -1 (unvisited)
-        for (Skill s : Skill.values()) {
-            depths.put(s, -1);
-        }
-
-        // Process each root skill
-        for (Skill root : roots) {
-            // Set root to depth 0
-            depths.put(root, 0);
-
-            // BFS to compute depths, revisiting nodes if we find a longer path
-            Queue<Skill> queue = new LinkedList<>();
-            queue.add(root);
-
-            while (!queue.isEmpty()) {
-                Skill current = queue.poll();
-                int currentDepth = depths.get(current);
-
-                for (Skill child : childrenMap.get(current)) {
-                    int childCurrentDepth = depths.get(child);
-                    int newDepth = currentDepth + 1;
-
-                    // If unvisited or we found a longer path, update depth and requeue
-                    if (childCurrentDepth == -1 || newDepth > childCurrentDepth) {
-                        depths.put(child, newDepth);
-                        queue.add(child); // Revisit this node to propagate the change
+            // Find all children of current skill
+            for (Skill potential : Skill.values()) {
+                for (Skill parent : potential.getParents()) {
+                    if (parent == current) {
+                        // This skill is a child of current
+                        int newDepth = currentDepth + 1;
+                        if (!depths.containsKey(potential) || depths.get(potential) < newDepth) {
+                            depths.put(potential, newDepth);
+                            queue.add(potential);
+                        }
+                        break;
                     }
                 }
             }
@@ -268,165 +254,6 @@ public class NanosuitSkillTree extends Screen {
 
         return depths;
     }
-
-    /**
-     * Assigns vertical positions so that:
-     *  1. All single‐parent sub‐branches fan out properly.
-     *  2. Any multi‐parent node is placed exactly at the average Y of all its parents (once all parents at that depth are done).
-     */
-    private void assignVerticalPositions(List<Skill> roots,
-                                         Map<Skill, List<Skill>> childrenMap,
-                                         Map<Skill, List<Skill>> parentMap,
-                                         Map<Skill, Point> coords,
-                                         Map<Skill, Integer> depths,
-                                         int maxDepth) {
-        // Step 1: Give every root node (depth 0) an initial Y, spaced out.
-        int yOffset = 0;
-        for (Skill root : roots) {
-            coords.put(root, new Point(coords.get(root).x, yOffset));
-            yOffset += V_SPACING * 2;  // extra gap between root “stems”
-        }
-
-        // Step 2: For each depth level d = 0..maxDepth–1, place all children at depth d+1.
-        for (int d = 0; d < maxDepth; d++) {
-            // A. Collect all multi-parent children (depth = d+1) so we can place them in one go.
-            List<Skill> multiParentKids = new ArrayList<>();
-
-            // B. For every skill S at depth d, position its single-parent children.
-            List<Skill> parentsAtD = new ArrayList<>();
-            for (Skill s : Skill.values()) {
-                if (depths.get(s) == d) {
-                    parentsAtD.add(s);
-                }
-            }
-            // Sort parents alphabetically so we get a deterministic order.
-            parentsAtD.sort(Comparator.comparing(Skill::getTitle));
-
-            for (Skill parent : parentsAtD) {
-                List<Skill> children = childrenMap.get(parent);
-                if (children.isEmpty()) {
-                    continue;
-                }
-
-                // Split children into two buckets: single-parent vs. multi-parent.
-                List<Skill> singleOnly = new ArrayList<>();
-                for (Skill c : children) {
-                    if (depths.get(c) == d + 1) {
-                        if (parentMap.get(c).size() == 1) {
-                            singleOnly.add(c);
-                        } else {
-                            multiParentKids.add(c);
-                        }
-                    }
-                }
-                // (We let multiParentKids collect duplicates; we’ll dedupe below.)
-
-                // If there are N single-parent children, distribute them evenly under 'parent'.
-                if (!singleOnly.isEmpty()) {
-                    singleOnly.sort(Comparator.comparing(Skill::getTitle));
-                    int total = singleOnly.size();
-                    // Start Y so that siblings “fan out” symmetrically around the parent Y.
-                    int parentY = coords.get(parent).y;
-                    int startY = parentY - ((total - 1) * V_SPACING) / 2;
-
-                    for (int i = 0; i < total; i++) {
-                        Skill child = singleOnly.get(i);
-                        int childY = startY + (i * V_SPACING);
-                        coords.put(child, new Point(coords.get(child).x, childY));
-                    }
-                }
-            }
-
-            // C. Now dedupe our multiParentKids list and place each exactly at the average of all its parents.
-            Set<Skill> dedup = new LinkedHashSet<>(multiParentKids);
-            for (Skill child : dedup) {
-                // Confirm that *all* of child’s parents are at depth d, so their coords are already set.
-                List<Skill> pList = parentMap.get(child);
-                boolean allAtD = true;
-                for (Skill p : pList) {
-                    if (depths.get(p) != d) {
-                        allAtD = false;
-                        break;
-                    }
-                }
-                if (!allAtD) {
-                    // If not every parent is at depth d, we’ll pick this up again when
-                    // we hit the parent’s actual depth. (In a strictly layered DAG this rarely happens.)
-                    continue;
-                }
-
-                // Compute the average Y of all parents.
-                int sumY = 0;
-                for (Skill p : pList) {
-                    sumY += coords.get(p).y;
-                }
-                int avgY = sumY / pList.size();
-                coords.put(child, new Point(coords.get(child).x, avgY));
-            }
-        }
-
-        // Step 3: Final pass to resolve any vertical overlaps at each X (depth).
-        // Group skills by their X (which is depth * H_SPACING).
-        Map<Integer, List<Skill>> byX = new HashMap<>();
-        for (Skill s : Skill.values()) {
-            Point pt = coords.get(s);
-            byX.computeIfAbsent(pt.x, k -> new ArrayList<>()).add(s);
-        }
-        for (int x : byX.keySet()) {
-            // Sort all nodes at this X by their Y, then push any that collide downward.
-            List<Skill> column = byX.get(x);
-            column.sort(Comparator.comparingInt(s -> coords.get(s).y));
-
-            for (int i = 1; i < column.size(); i++) {
-                Skill prev = column.get(i - 1);
-                Skill curr = column.get(i);
-                Point prevP = coords.get(prev);
-                Point currP = coords.get(curr);
-
-                if (currP.y - prevP.y < V_SPACING) {
-                    // Nudge curr down so it’s at least V_SPACING below prev.
-                    coords.put(curr, new Point(currP.x, prevP.y + V_SPACING));
-                }
-            }
-        }
-    }
-
-    /**
-     * Post-processing step to resolve any remaining vertical overlaps between nodes.
-     */
-    private void resolveVerticalOverlaps(Map<Skill, Point> coords, Map<Skill, Integer> depths) {
-        // Group skills by their X-coordinate (depth)
-        Map<Integer, List<Skill>> skillsByX = new HashMap<>();
-
-        for (Skill s : Skill.values()) {
-            Point p = coords.get(s);
-            skillsByX.computeIfAbsent(p.x, k -> new ArrayList<>()).add(s);
-        }
-
-        // For each x-coordinate, sort skills by their y-coordinate and resolve overlaps
-        for (int x : skillsByX.keySet()) {
-            List<Skill> skillsAtX = skillsByX.get(x);
-
-            // Sort by Y position
-            skillsAtX.sort(Comparator.comparingInt(s -> coords.get(s).y));
-
-            // Check and fix overlaps
-            for (int i = 1; i < skillsAtX.size(); i++) {
-                Skill prev = skillsAtX.get(i - 1);
-                Skill curr = skillsAtX.get(i);
-
-                Point prevPos = coords.get(prev);
-                Point currPos = coords.get(curr);
-
-                // If overlap detected (less than minimum spacing)
-                if (currPos.y - prevPos.y < V_SPACING) {
-                    // Push current skill down
-                    coords.put(curr, new Point(currPos.x, prevPos.y + V_SPACING));
-                }
-            }
-        }
-    }
-
     /**
      * After all nodes exist, center the bounding box of (x,y) so the skill-tree sits neatly
      * in the middle of the GUI.

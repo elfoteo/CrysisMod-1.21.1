@@ -4,7 +4,6 @@ import com.elfoteo.tutorialmod.skill.Skill;
 import com.elfoteo.tutorialmod.skill.SkillData;
 import com.elfoteo.tutorialmod.util.SuitUtils;
 import com.mojang.authlib.GameProfile;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
@@ -15,9 +14,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(LocalPlayer.class)
-public abstract class LocalPlayerMixin extends Player {
+public abstract class NanosuitDashJetMixin extends Player {
 
-    public LocalPlayerMixin(Level level, BlockPos pos, float yRot, GameProfile profile) {
+    public NanosuitDashJetMixin(Level level, BlockPos pos, float yRot, GameProfile profile) {
         super(level, pos, yRot, profile);
     }
 
