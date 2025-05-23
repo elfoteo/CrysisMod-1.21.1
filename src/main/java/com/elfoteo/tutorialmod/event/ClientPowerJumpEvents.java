@@ -236,7 +236,9 @@ public class ClientPowerJumpEvents {
             int gx = Mth.floor(nextPos.x);
             int gz = Mth.floor(nextPos.z);
             double groundY = world.getHeight(Heightmap.Types.MOTION_BLOCKING, gx, gz);
+            // Compare the player's feet with ground level, so nextPos.y - halfHeight for feet
             if (nextPos.y - playerHeight/2 <= groundY + 0.01) {
+                // Set landing point exactly at ground level, no offsets
                 landingPoint = new Vec3(nextPos.x, groundY, nextPos.z).subtract(camPos);
                 arc.add(landingPoint);
                 break;
@@ -323,37 +325,24 @@ public class ClientPowerJumpEvents {
                     new Vector3f(c.x, c.y + 0.05f, c.z - s),
                     new Vector3f(c.x, c.y + 0.05f, c.z + s),
                     SIDES, RADIUS, TARGET_R, TARGET_G, TARGET_B, TARGET_A);
-
-            // Circle marker at landing point (approximated with an octagon)
-            float ringRadius = 0.4f;
-            int ringSegments = 8;
-            for (int i = 0; i < ringSegments; i++) {
-                float angle1 = (float)(2 * Math.PI * i / ringSegments);
-                float angle2 = (float)(2 * Math.PI * (i + 1) / ringSegments);
-
-                Vector3f p1 = new Vector3f(
-                        c.x + ringRadius * (float)Math.cos(angle1),
-                        c.y + 0.05f,
-                        c.z + ringRadius * (float)Math.sin(angle1)
-                );
-
-                Vector3f p2 = new Vector3f(
-                        c.x + ringRadius * (float)Math.cos(angle2),
-                        c.y + 0.05f,
-                        c.z + ringRadius * (float)Math.sin(angle2)
-                );
-
-                renderTubeSegment(poseStack, buf, p1, p2, SIDES, RADIUS, TARGET_R, TARGET_G, TARGET_B, TARGET_A);
-            }
         }
+
+        // Render the arc segments
+        for (int i = 0; i < arc.size() - 1; i++) {
+            Vector3f a = new Vector3f((float)arc.get(i).x, (float)arc.get(i).y, (float)arc.get(i).z);
+            Vector3f b = new Vector3f((float)arc.get(i + 1).x, (float)arc.get(i + 1).y, (float)arc.get(i + 1).z);
+            float alpha = ((float)i / arc.size());
+            renderTubeSegment(poseStack, buf, a, b, SIDES, RADIUS, R, G, B, A * (1 - alpha));
+        }
+
+        poseStack.popPose();
 
         BufferUploader.drawWithShader(buf.buildOrThrow());
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
-
-        poseStack.popPose();
     }
+
 
     /**
      * Simulates movement with proper collision detection for the full player hitbox
