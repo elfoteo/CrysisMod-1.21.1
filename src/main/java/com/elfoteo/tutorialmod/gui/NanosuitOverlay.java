@@ -39,7 +39,11 @@ public class NanosuitOverlay {
     private static final Rect VISOR_MODE_FILL_RECT   = new Rect(87, 28, 37, 6);
 
     private static float animatedEnergy = 1f;
-    private static float animatedJump   = 0f;
+    // How quickly (in units of “fraction per second”) the bar moves toward the true value:
+    private static final float JUMP_LERP_SPEED = 2f;
+
+    // We keep a persistent “displayed” jump‐charge that gradually moves toward the real one
+    private static float displayedJump = 0f;
     private static long  lastTime = System.currentTimeMillis();
 
     private static boolean redBlinking = false;
@@ -66,15 +70,33 @@ public class NanosuitOverlay {
         float dt = (now - lastTime) / 1000f;
         lastTime = now;
 
-        float targetEnergy = Mth.clamp(player.getData(ModAttachments.ENERGY) / (float)player.getData(ModAttachments.MAX_ENERGY), 0f, 1f);
+        // ——— Energy interpolation is unchanged ———
+        float targetEnergy = Mth.clamp(
+                player.getData(ModAttachments.ENERGY) / (float) player.getData(ModAttachments.MAX_ENERGY),
+                0f, 1f
+        );
         if (Math.abs(animatedEnergy - targetEnergy) > 0.001f) {
             animatedEnergy += Mth.clamp(targetEnergy - animatedEnergy, -0.85f * dt, 0.85f * dt);
         } else {
             animatedEnergy = targetEnergy;
         }
 
-        float targetJump = Mth.clamp(ClientPowerJumpEvents.getCurrentJumpCharge(player), 0f, 1f);
-        animatedJump += (targetJump - animatedJump) * 3f * dt;
+        // ——— Compute the “true” jump charge instantly ———
+        float trueJump = Mth.clamp(
+                ClientPowerJumpEvents.getCurrentJumpCharge(player),
+                0f, 1f
+        );
+
+        // ——— Linear (constant‐rate) interpolation toward trueJump ———
+        float diff = trueJump - displayedJump;
+        float maxDelta = JUMP_LERP_SPEED * dt;
+        if (Math.abs(diff) <= maxDelta) {
+            // Close enough: snap to the real value
+            displayedJump = trueJump;
+        } else {
+            // Move up or down by maxDelta
+            displayedJump += Math.signum(diff) * maxDelta;
+        }
 
         boolean inCloak = Nanosuit.currentClientMode == SuitModes.CLOAK.get();
         if (inCloak && !wasInCloakMode) {
@@ -83,7 +105,10 @@ public class NanosuitOverlay {
         wasInCloakMode = inCloak;
 
         if (inCloak) {
-            vignetteAlpha = Mth.clamp(vignetteAlpha + (dt / VIGNETTE_FADE_IN_TIME) * 0.5f, 0f, 1f);
+            vignetteAlpha = Mth.clamp(
+                    vignetteAlpha + (dt / VIGNETTE_FADE_IN_TIME) * 0.5f,
+                    0f, 1f
+            );
         } else {
             vignetteAlpha = 0f;
         }
@@ -93,7 +118,7 @@ public class NanosuitOverlay {
         }
 
         drawEnergyBar(gui, baseX, baseY, animatedEnergy);
-        drawJumpBar(gui, baseX, baseY, animatedJump);
+        drawJumpBar(gui, baseX, baseY, displayedJump);
         drawModeFill(gui, baseX, baseY);
     }
 
@@ -150,11 +175,17 @@ public class NanosuitOverlay {
     }
 
     private static void drawJumpBar(GuiGraphics gui, int baseX, int baseY, float fraction) {
-        int x = baseX + JUMP_BAR.x, y = baseY + JUMP_BAR.y;
-        int w = JUMP_BAR.width, h = JUMP_BAR.height;
-        int fill = (int) (w * fraction);
+        int x = baseX + JUMP_BAR.x,
+                y = baseY + JUMP_BAR.y;
+        int w = JUMP_BAR.width,
+                h = JUMP_BAR.height;
+        // Use Math.round so that at exactly 1f we fill all pixels
+        int fill = Math.round(w * fraction);
+
+        // draw the dark background
         gui.fill(x, y, x + w, y + h, 0xFF202020);
         if (fill > 0) {
+            // draw the yellow fill
             gui.fill(x, y, x + fill, y + h, 0xFFFFFF00);
         }
     }

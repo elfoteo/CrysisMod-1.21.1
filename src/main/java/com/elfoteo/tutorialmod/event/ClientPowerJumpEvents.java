@@ -37,19 +37,23 @@ public class ClientPowerJumpEvents {
     public static float getCurrentJumpCharge(Player player) {
         return jumpChargeMap.getOrDefault(player, 0f);
     }
-
+    // Add a map to record when the last power jump happened (server side)
+    public static final Map<UUID, Integer> lastJumpTick = new HashMap<>();
 
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         Player player = event.getEntity();
         if (player != Minecraft.getInstance().player) return;
-
         if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
 
         float charge = getCurrentJumpCharge(player);
-        if (player.isCrouching() && player.onGround()) {
+
+        int lastTick = lastJumpTick.getOrDefault(player.getUUID(), -100);
+        boolean recentlyJumped = player.tickCount - lastTick <= 1;
+
+        if (!recentlyJumped && player.isCrouching() && player.onGround()) {
             charge = Math.min(1f, charge + (1f - charge) * 0.35f + 0.15f);
-        } else {
+        } else if (!recentlyJumped) {
             charge = Math.max(0f, charge - 0.1f);
         }
 
@@ -63,20 +67,26 @@ public class ClientPowerJumpEvents {
         if (!player.isCrouching()) return;
         if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
 
-        float charge = getCurrentJumpCharge(player);
         if (!SuitUtils.tryDrainEnergy(player, JUMP_COST)) return;
 
         jumpChargeMap.put(player, 0f);
+        // Record the tick at which this power jump happened, so that regen can be delayed
+        lastJumpTick.put(player.getUUID(), player.tickCount);
     }
+
     @OnlyIn(Dist.CLIENT)
     @SubscribeEvent
     public static void onClientJump(LivingEvent.LivingJumpEvent event) {
+        // Clientside
         if (!(event.getEntity() instanceof Player player)) return;
         if (player != Minecraft.getInstance().player) return;
+        if (!player.level().isClientSide) return;
         if (!player.isCrouching()) return;
         if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
+        if (!SuitUtils.tryDrainEnergy(player, JUMP_COST)) return;
 
         float charge = getCurrentJumpCharge(player);
+        System.out.println(charge);
 
         float pitch = player.getXRot() * ((float)Math.PI / 180f);
         float yaw   = player.getYRot() * ((float)Math.PI / 180f);

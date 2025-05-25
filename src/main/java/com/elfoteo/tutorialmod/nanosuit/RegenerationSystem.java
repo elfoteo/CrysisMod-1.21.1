@@ -2,6 +2,7 @@ package com.elfoteo.tutorialmod.nanosuit;
 
 import com.elfoteo.tutorialmod.TutorialMod;
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
+import com.elfoteo.tutorialmod.event.ClientPowerJumpEvents;
 import com.elfoteo.tutorialmod.network.custom.ArmorInfoPacket;
 import com.elfoteo.tutorialmod.skill.Skill;
 import com.elfoteo.tutorialmod.skill.SkillData;
@@ -57,6 +58,7 @@ public class RegenerationSystem {
         double speedSq = velocity.x * velocity.x + velocity.z * velocity.z;
 
         int ticksSinceLastHit = currentTick - lastDamageTick.getOrDefault(uuid, -1000);
+        int ticksSinceLastJump = currentTick - ClientPowerJumpEvents.lastJumpTick.getOrDefault(uuid, -1000);
 
         // ===== Nano Regeneration (health) =====
         if (SkillData.isUnlocked(Skill.NANO_REGEN, player)
@@ -84,7 +86,13 @@ public class RegenerationSystem {
         }
 
         int ticksIdle = ticksSinceEnergyUse.getOrDefault(uuid, 0);
-        if (ticksIdle < 20 || ticksSinceLastHit < 20) return; // 1s energy delay & hit cooldown
+        // ◀️ Do not regenerate if:
+        //   • player used energy within last 1 second (ticksIdle < 20)
+        //   • player was hit within last 1 second (ticksSinceLastHit < 20)
+        //   • OR player used a power jump within last 3 seconds (ticksSinceLastJump < 60)
+        if (ticksIdle < 20 || ticksSinceLastHit < 20 || ticksSinceLastJump < 60) {
+            return;
+        }
 
         float regenRate = maxRegenRate;
 
