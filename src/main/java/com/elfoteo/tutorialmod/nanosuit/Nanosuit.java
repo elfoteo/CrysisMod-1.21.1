@@ -49,63 +49,120 @@ public class Nanosuit {
     private static final Map<UUID, Vec3> previousPositions = new HashMap<>();
     public static final Map<UUID, Long> cloakBreakTimestamps = new HashMap<>();
 
+    // ─── NEW FIELDS ──────────────────────────────────────────────────────────────────
+    /**
+     * Tracks whether the visor key was down on the previous tick, so we can detect “held” vs “just pressed.”
+     */
+    private static boolean previousVisorKeyDown = false;
+    /**
+     * Same for the cloak key.
+     */
+    private static boolean previousCloakKeyDown = false;
+    // ────────────────────────────────────────────────────────────────────────────────
+
     @OnlyIn(Dist.CLIENT)
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Pre event) {
         Player player = Minecraft.getInstance().player;
         if (player == null) return;
 
+        // If not wearing full nanosuit, force mode back to NOT_EQUIPPED
         if (!SuitUtils.isWearingFullNanosuit(player)) {
             if (currentClientMode != SuitModes.NOT_EQUIPPED.get()) {
                 setClientMode(SuitModes.NOT_EQUIPPED.get(), player);
             }
+            // Reset “previous key” states so when they equip again, keys are “fresh.”
+            previousVisorKeyDown = false;
+            previousCloakKeyDown = false;
             return;
         }
 
-        float energy = player.getData(ModAttachments.ENERGY);
-        int mode   = currentClientMode;
-        int target = mode;
+        // ─── Gather essential data ─────────────────────────────────────────────────
+        float energy    = player.getData(ModAttachments.ENERGY);
+        int   mode      = currentClientMode;
+        int   target    = mode;
+        int   maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
+        float threshold = 0.1f * maxEnergy;
+        // 10% of maxEnergy; only allow reactivation if energy >= threshold (unless key was just pressed)
 
-        long now        = System.currentTimeMillis();
-        long blockedUntil = cloakBreakTimestamps.getOrDefault(player.getUUID(), 0L);
+        long now            = System.currentTimeMillis();
+        long blockedUntil   = cloakBreakTimestamps.getOrDefault(player.getUUID(), 0L);
         boolean cloakBlocked = now < blockedUntil;
 
         boolean visorKeyDown = ModKeyBindings.VISOR_KEY.isDown();
         boolean cloakKeyDown = ModKeyBindings.CLOAK_KEY.isDown();
 
+        // Detect “just pressed” vs “held down”
+        boolean justPressedVisor = visorKeyDown && !previousVisorKeyDown;
+        boolean justPressedCloak = cloakKeyDown && !previousCloakKeyDown;
+        // ──────────────────────────────────────────────────────────────────────────
+
+        // VISOR logic
         if (visorKeyDown && energy > 0f) {
+            // If currently not in VISOR, try to switch in, but only if:
+            //    • The player “just pressed” the VISOR key, OR
+            //    • Player has at least 10% energy
             if (mode != SuitModes.VISOR.get()) {
-                previousClientMode = mode;
-                target = SuitModes.VISOR.get();
+                if (justPressedVisor || energy >= threshold) {
+                    previousClientMode = mode;
+                    target = SuitModes.VISOR.get();
+                }
             }
         } else if (mode == SuitModes.VISOR.get()) {
+            // If player has let go of the key (or energy is 0), revert back to previous mode
             target = previousClientMode;
         } else {
+            // ─── CLOAK logic when visor is not active ──────────────────────────────
             if (cloakKeyDown && energy > 0f && mode != SuitModes.CLOAK.get() && !cloakBlocked) {
-                target = SuitModes.CLOAK.get();
+                // Only enter CLOAK if:
+                //    • “Just pressed” CLOAK key, OR
+                //    • energy >= 10% threshold
+                if (justPressedCloak || energy >= threshold) {
+                    target = SuitModes.CLOAK.get();
+                }
             } else if (!cloakKeyDown && mode == SuitModes.CLOAK.get()) {
+                // Player released the cloak key → go back to ARMOR
                 target = SuitModes.ARMOR.get();
             }
+
+            // If the player is in CLOAK (or VISOR) and energy hits zero, force ARMOR immediately
             if (mode != SuitModes.ARMOR.get() && energy <= 0f) {
                 target = SuitModes.ARMOR.get();
             }
         }
 
+        // If we need to switch mode, do it now
         if (target != mode) {
             setClientMode(target, player);
+        }
+
+        // ─── Update “previous key state” for next tick ─────────────────────────────
+        previousVisorKeyDown = visorKeyDown;
+        previousCloakKeyDown = cloakKeyDown;
+        // ──────────────────────────────────────────────────────────────────────────
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public static void setClientMode(int newMode, Player player, boolean sendPacket) {
+        if (currentClientMode == newMode) return;
+
+        // If entering or exiting VISOR, force full relight (so darkness/lighting updates correctly)
+        if (currentClientMode == SuitModes.VISOR.get() || newMode == SuitModes.VISOR.get()) {
+            Minecraft.getInstance().levelRenderer.allChanged();
+        }
+
+        currentClientMode = newMode;
+        player.setData(ModAttachments.SUIT_MODE, newMode);
+        System.out.println(newMode + "; sendPacket=" + sendPacket);
+
+        if (sendPacket) {
+            PacketDistributor.sendToServer(new SuitModePacket(player.getId(), newMode));
         }
     }
 
     @OnlyIn(Dist.CLIENT)
-    private static void setClientMode(int newMode, Player player) {
-        int oldMode = currentClientMode;
-        currentClientMode = newMode;
-        player.setData(ModAttachments.SUIT_MODE, newMode);
-        PacketDistributor.sendToServer(new SuitModePacket(player.getId(), newMode));
-
-        if (oldMode == SuitModes.VISOR.get() || newMode == SuitModes.VISOR.get()) {
-            Minecraft.getInstance().levelRenderer.allChanged();
-        }
+    public static void setClientMode(int newMode, Player player) {
+        setClientMode(newMode, player, true);
     }
 
     @SubscribeEvent
@@ -122,14 +179,14 @@ public class Nanosuit {
             return;
         }
 
-        int mode = player.getData(ModAttachments.SUIT_MODE);
-        float energy = player.getData(ModAttachments.ENERGY);
-        int maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
+        int   mode      = player.getData(ModAttachments.SUIT_MODE);
+        float energy    = player.getData(ModAttachments.ENERGY);
+        int   maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
         float newEnergy = energy;
-        int newMode = mode;
+        int   newMode   = mode;
 
-        long currentTime = System.currentTimeMillis();
-        long blockedUntil = cloakBreakTimestamps.getOrDefault(player.getUUID(), 0L);
+        long currentTime    = System.currentTimeMillis();
+        long blockedUntil   = cloakBreakTimestamps.getOrDefault(player.getUUID(), 0L);
         boolean cloakBlocked = currentTime < blockedUntil;
 
         if ((mode == SuitModes.CLOAK.get() || mode == SuitModes.VISOR.get()) && energy > 0f) {
@@ -147,6 +204,7 @@ public class Nanosuit {
                 }
 
                 if (newEnergy <= 0f) {
+                    // Energy just dropped to zero → force ARMOR on server side as well
                     newMode = SuitModes.ARMOR.get();
                     player.setData(ModAttachments.SUIT_MODE, newMode);
                     player.removeEffect(MobEffects.INVISIBILITY);
@@ -176,9 +234,9 @@ public class Nanosuit {
         double dx = cur.x - prev.x;
         double dz = cur.z - prev.z;
         boolean dynamicCloaking = player.getData(ModAttachments.ALL_SKILLS).get(Skill.DYNAMIC_CLOAKING).isUnlocked();
-        if (player.isSprinting()) return CLOAK_DRAIN_RUNNING * (dynamicCloaking? 0.75f: 1);
-        if (dx * dx + dz * dz > 0.001) return CLOAK_DRAIN_MOVING * (dynamicCloaking? 0.75f: 1);
-        return CLOAK_DRAIN_STILL * (dynamicCloaking? 0.75f: 1);
+        if (player.isSprinting()) return CLOAK_DRAIN_RUNNING * (dynamicCloaking ? 0.75f : 1);
+        if (dx * dx + dz * dz > 0.001) return CLOAK_DRAIN_MOVING * (dynamicCloaking ? 0.75f : 1);
+        return CLOAK_DRAIN_STILL * (dynamicCloaking ? 0.75f : 1);
     }
 
     @SubscribeEvent(priority = EventPriority.LOW)
@@ -223,8 +281,8 @@ public class Nanosuit {
             }
         }
 
-        if (target instanceof Player targetPlayer){
-            if (targetPlayer.getData(ModAttachments.SUIT_MODE) == SuitModes.CLOAK.get()){
+        if (target instanceof Player targetPlayer) {
+            if (targetPlayer.getData(ModAttachments.SUIT_MODE) == SuitModes.CLOAK.get()) {
                 targetPlayer.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
                 targetPlayer.removeEffect(MobEffects.INVISIBILITY);
                 int cooldown = 1000;
@@ -248,12 +306,11 @@ public class Nanosuit {
     @SubscribeEvent
     public static void onEquipmentChange(LivingEquipmentChangeEvent event) {
         if (event.getSlot().getType() == EquipmentSlot.Type.HUMANOID_ARMOR && event.getEntity() instanceof Player player) {
-            if (SuitUtils.isWearingFullNanosuit(player)){
+            if (SuitUtils.isWearingFullNanosuit(player)) {
                 player.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
-                if (player.level().isClientSide){
+                if (player.level().isClientSide) {
                     currentClientMode = SuitModes.ARMOR.get();
-                }
-                else {
+                } else {
                     PacketDistributor.sendToPlayer((ServerPlayer) player, new SuitModePacket(
                             player.getId(),
                             SuitModes.ARMOR.get()

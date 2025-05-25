@@ -30,7 +30,8 @@ public class ClientPayloadHandler {
             player.setData(ModAttachments.ENERGY, packet.energy());
             player.setData(ModAttachments.MAX_ENERGY, packet.maxEnergy());
             player.setData(ModAttachments.MAX_ENERGY_REGEN, packet.maxEnergyRegen());
-            player.setData(ModAttachments.SUIT_MODE, packet.suitMode());
+            //player.setData(ModAttachments.SUIT_MODE, packet.suitMode());
+            Nanosuit.setClientMode(packet.suitMode(), player, false);
         });
     }
 
@@ -40,11 +41,10 @@ public class ClientPayloadHandler {
             return;
         }
         context.enqueueWork(() -> {
-            player.setData(ModAttachments.SUIT_MODE, packet.suitMode());
             if (Nanosuit.currentClientMode == SuitModes.VISOR.get() && packet.suitMode() != SuitModes.VISOR.get()) {
                 Nanosuit.previousClientMode = Nanosuit.currentClientMode; // Remember what we switched to after visor ends
             }
-            Nanosuit.currentClientMode = packet.suitMode();
+            Nanosuit.setClientMode(packet.suitMode(), player, false);
         });
     }
 
