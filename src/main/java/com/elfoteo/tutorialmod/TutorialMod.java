@@ -1,5 +1,6 @@
 package com.elfoteo.tutorialmod;
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
+import com.elfoteo.tutorialmod.block.entity.renderer.CreativeVendingMachineBlockEntityRenderer;
 import com.elfoteo.tutorialmod.event.ClientPowerJumpEvents;
 import com.elfoteo.tutorialmod.gui.BuyingVendingMachineMenu;
 import com.elfoteo.tutorialmod.gui.BuyingVendingMachineScreen;
@@ -149,6 +150,7 @@ public class TutorialMod {
         @SubscribeEvent
         public static void registerBER(EntityRenderersEvent.RegisterRenderers event) {
             event.registerBlockEntityRenderer(ModBlockEntities.PEDESTAL_BE.get(), PedestalBlockEntityRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.CREATIVE_VENDING_MACHINE_BE.get(), CreativeVendingMachineBlockEntityRenderer::new);
         }
         @SubscribeEvent
         public static void registerScreens(RegisterMenuScreensEvent event) {
