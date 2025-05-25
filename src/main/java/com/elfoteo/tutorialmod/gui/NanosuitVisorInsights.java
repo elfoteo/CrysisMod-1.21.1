@@ -1,6 +1,9 @@
 package com.elfoteo.tutorialmod.gui;
 
 import com.elfoteo.tutorialmod.TutorialMod;
+import com.elfoteo.tutorialmod.gui.util.EntityDisposition;
+import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
+import com.elfoteo.tutorialmod.util.SuitModes;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
@@ -23,14 +26,33 @@ import org.joml.Matrix4f;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @OnlyIn(Dist.CLIENT)
 @EventBusSubscriber(modid = TutorialMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public class NanosuitVisorInsights {
     private static final ResourceLocation VISOR_OVERLAY = ResourceLocation.fromNamespaceAndPath(TutorialMod.MOD_ID, "textures/gui/visor_overlay.png");
-    private static final Rect HEALTHBAR = new Rect(6, 50, 60, 4);
+    private static final Rect HEALTHBAR = new Rect(6, 56, 98, 4);
     private static final Rect DECORATION = new Rect(0, 0, 110, 70);
+
+    private static Entity lastEntity = null;
+    private static int lastTick = -1;
+
+    public static Entity getLookedAtEntity() {
+        if (Nanosuit.currentClientMode != SuitModes.VISOR.get()) return null;
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc.player;
+        if (player == null) return null;
+        int currentTick = (int) mc.level.getGameTime();
+        if (currentTick != lastTick) {
+            int renderDistanceChunks = mc.options.getEffectiveRenderDistance();
+            double rayRange = renderDistanceChunks * 16 * 0.95 - 1;
+            lastEntity = raycastEntityBypassBlocks(player, rayRange);
+            lastTick = currentTick;
+        }
+        return lastEntity;
+    }
 
     @SubscribeEvent
     public static void onRenderHUD(RenderGuiLayerEvent.Pre event) {
@@ -40,70 +62,54 @@ public class NanosuitVisorInsights {
         Player player = mc.player;
         if (player == null) return;
 
-        Entity lookedAt = raycastEntity(player, 32);
-        if (!(lookedAt instanceof LivingEntity target)) return;
+        Entity target = getLookedAtEntity();
+        if (target == null) return;
 
         GuiGraphics gui = event.getGuiGraphics();
         int sw = gui.guiWidth();
         int sh = gui.guiHeight();
 
-        // === Entity Data ===
-        String name = target.getName().getString();
-        String type = target.getType().toShortString();
-        float hp = target.getHealth(), maxHp = target.getMaxHealth();
-        float armor = target.getArmorValue();
-        String disposition = getDisposition(target);
-
-        // === UI Coordinates ===
-        int baseX = sw - 50 - DECORATION.width;
-        int baseY = 150;
+        int margin = 10;
+        int baseX = sw - DECORATION.width - margin;
+        int baseY = sh / 2 - DECORATION.height - margin;
         int textX = baseX + 6;
         int textY = baseY + 8;
         int lineHeight = 10;
 
-        // === Background Decoration ===
+        String name = target.getName().getString();
+        String type = target.getType().toShortString();
+        String disposition = EntityDisposition.getName(target);
+        int dispositionColor = EntityDisposition.getColor(target);
+        double distance = player.distanceTo(target);
+
+        // If it's a living entity, grab health and armor. Otherwise, display "N/A".
+        float hp = target instanceof LivingEntity le ? le.getHealth() : -1f;
+        float maxHp = target instanceof LivingEntity le ? le.getMaxHealth() : -1f;
+        float armor = target instanceof LivingEntity le ? le.getArmorValue() : -1f;
+
         drawTexturedRect(gui, VISOR_OVERLAY, baseX, baseY, DECORATION.width, DECORATION.height,
                 1f, 1f, 1f, 1f, 1f);
 
-        // === Text Scaling ===
         gui.pose().pushPose();
         gui.pose().translate(textX, textY, 0);
         gui.pose().scale(0.75f, 0.75f, 1f);
-
-        // Text is drawn with coordinates scaled down
         drawLabelValue(gui, "Name", name, 0, 0, 0x00FFFF);
         drawLabelValue(gui, "Type", type, 0, lineHeight, 0x00FFFF);
-        drawLabelValue(gui, "Disposition", disposition, 0, lineHeight * 2, getDispositionColor(disposition));
-        drawLabelValue(gui, "Armor", String.format("%.1f", armor), 0, lineHeight * 3 + 3, 0x00FFFF);
+        drawLabelValue(gui, "Disposition", disposition, 0, lineHeight * 2, dispositionColor);
+        drawLabelValue(gui, "Armor", armor >= 0 ? String.format("%.1f", armor) : "N/A", 0, lineHeight * 3 + 3, 0x00FFFF);
+        drawLabelValue(gui, "Distance", String.format("%.1f m", distance), 0, lineHeight * 4 + 3, 0x00FFFF);
+        drawLabelValue(gui, "HP", hp >= 0 ? String.format("%.1f / %.1f", hp, maxHp) : "N/A", 0, lineHeight * 5 + 3, 0x00FFFF);
         gui.pose().popPose();
 
-        // === Health Bar ===
-        drawHealthBar(gui, baseX, baseY, Math.max(0f, Math.min(1f, hp / maxHp)));
-
-        // === Health Label (not scaled) ===
-        gui.drawString(mc.font, Component.literal(String.format("HP: %.1f / %.1f", hp, maxHp)),
-                textX, baseY + HEALTHBAR.y + HEALTHBAR.height + 4, 0x00FFFF, false);
+        if (hp >= 0 && maxHp > 0) {
+            drawHealthBar(gui, baseX, baseY, Math.max(0f, Math.min(1f, hp / maxHp)));
+        }
     }
 
     private static void drawLabelValue(GuiGraphics gui, String label, String value, int x, int y, int color) {
         Minecraft mc = Minecraft.getInstance();
         String text = label + ": " + value;
         gui.drawString(mc.font, Component.literal(text), x, y, color, false);
-    }
-
-    private static String getDisposition(LivingEntity entity) {
-        if (entity instanceof Enemy) return "Hostile"; // ✅ Fix: Zombies etc. now correctly show as hostile
-        if (entity.getType().getCategory().isFriendly()) return "Passive";
-        return "Neutral";
-    }
-
-    private static int getDispositionColor(String disposition) {
-        return switch (disposition) {
-            case "Hostile" -> 0xFF5555;
-            case "Neutral" -> 0xFFFFAA;
-            case "Passive" -> 0xAAFFAA;
-            default -> 0xFFFFFF;
-        };
     }
 
     private static void drawHealthBar(GuiGraphics gui, int baseX, int baseY, float fraction) {
@@ -116,7 +122,7 @@ public class NanosuitVisorInsights {
         }
     }
 
-    private static Entity raycastEntity(Player player, double range) {
+    private static Entity raycastEntityBypassBlocks(Player player, double range) {
         Vec3 eye = player.getEyePosition(1.0F);
         Vec3 look = player.getLookAngle();
         Vec3 reachVec = eye.add(look.scale(range));
@@ -130,7 +136,7 @@ public class NanosuitVisorInsights {
                     Optional<Vec3> hit = box.clip(eye, reachVec);
                     return hit.map(vec -> new EntityHit(e, eye.distanceTo(vec))).orElse(null);
                 })
-                .filter(eh -> eh != null)
+                .filter(Objects::nonNull)
                 .min(Comparator.comparingDouble(eh -> eh.distance))
                 .map(eh -> eh.entity)
                 .orElse(null);

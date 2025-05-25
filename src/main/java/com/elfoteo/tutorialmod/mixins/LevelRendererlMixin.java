@@ -1,5 +1,6 @@
 package com.elfoteo.tutorialmod.mixins;
 
+import com.elfoteo.tutorialmod.gui.util.EntityDisposition;
 import com.elfoteo.tutorialmod.nanosuit.Nanosuit;
 import com.elfoteo.tutorialmod.util.SetSectionRenderDispatcher;
 import com.elfoteo.tutorialmod.util.SuitModes;
@@ -12,14 +13,15 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectListIterator;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.RenderBuffers;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import net.minecraft.util.FastColor;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
@@ -58,6 +60,8 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
     @Shadow private int ticks;
 
     @Shadow @Final private RenderBuffers renderBuffers;
+
+    @Shadow @Final private EntityRenderDispatcher entityRenderDispatcher;
 
     @Inject(method = "renderSky", at = @At("HEAD"), cancellable = true)
     private void renderOnlySkyColor(
@@ -101,6 +105,22 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
     private void renderClouds(
             PoseStack poseStack, Matrix4f frustumMatrix, Matrix4f projectionMatrix, float partialTick, double camX, double camY, double camZ, CallbackInfo ci) {
         ci.cancel(); // Cancel vanilla method to prevent further rendering
+    }
+
+    @Inject(method = "renderEntity", at = @At("HEAD"), cancellable = true)
+    private void renderEntity(Entity entity, double camX, double camY, double camZ, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, CallbackInfo ci) {
+        double d0 = Mth.lerp(partialTick, entity.xOld, entity.getX());
+        double d1 = Mth.lerp(partialTick, entity.yOld, entity.getY());
+        double d2 = Mth.lerp(partialTick, entity.zOld, entity.getZ());
+        float f = Mth.lerp(partialTick, entity.yRotO, entity.getYRot());
+        if (Nanosuit.currentClientMode == SuitModes.VISOR.get()){
+            if (bufferSource instanceof OutlineBufferSource obs){
+                int packedColor = EntityDisposition.getColor(entity);
+                obs.setColor(FastColor.ARGB32.red(packedColor), FastColor.ARGB32.green(packedColor), FastColor.ARGB32.blue(packedColor), 255);
+            }
+        }
+        this.entityRenderDispatcher.render(entity, d0 - camX, d1 - camY, d2 - camZ, f, partialTick, poseStack, bufferSource, this.entityRenderDispatcher.getPackedLightCoords(entity, partialTick));
+        ci.cancel();
     }
 
     /*@Inject(method = "renderSectionLayer", at=@At("HEAD"))

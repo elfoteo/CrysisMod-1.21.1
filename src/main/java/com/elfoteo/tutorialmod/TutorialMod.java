@@ -1,6 +1,9 @@
 package com.elfoteo.tutorialmod;
 import com.elfoteo.tutorialmod.attachments.ModAttachments;
 import com.elfoteo.tutorialmod.event.ClientPowerJumpEvents;
+import com.elfoteo.tutorialmod.gui.BuyingVendingMachineMenu;
+import com.elfoteo.tutorialmod.gui.BuyingVendingMachineScreen;
+import com.elfoteo.tutorialmod.gui.CreativeVendingMachineScreen;
 import com.elfoteo.tutorialmod.nanosuit.NanosuitUpgrades;
 import com.elfoteo.tutorialmod.nanosuit.RegenerationSystem;
 import com.elfoteo.tutorialmod.network.ModPackets;
@@ -151,6 +154,8 @@ public class TutorialMod {
         public static void registerScreens(RegisterMenuScreensEvent event) {
             event.register(ModMenuTypes.PEDESTAL_MENU.get(), PedestalScreen::new);
             event.register(ModMenuTypes.GROWTH_CHAMBER_MENU.get(), GrowthChamberScreen::new);
+            event.register(ModMenuTypes.CREATIVE_VENDING_MACHINE_MENU.get(), CreativeVendingMachineScreen::new);
+            event.register(ModMenuTypes.BUYING_VENDING_MACHINE_MENU.get(), BuyingVendingMachineScreen::new);
         }
     }
 }

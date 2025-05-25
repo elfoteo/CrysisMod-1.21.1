@@ -21,4 +21,9 @@ public abstract class RenderTypeMixin {
         if (InfraredShader.INFRARED_ENTITY_CUTOUT_NO_CULL != null && Nanosuit.currentClientMode == SuitModes.VISOR.get())
             cir.setReturnValue(InfraredShader.infraredEntityCutoutNoCull(location));
     }
+
+    @Inject(method = "outline(Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraft/client/renderer/RenderType;", at=@At("HEAD"), cancellable = true)
+    private static void outline(ResourceLocation location, CallbackInfoReturnable<RenderType> cir) {
+        cir.setReturnValue(InfraredShader.CompositeRenderType.OUTLINE.apply(location, RenderType.NO_CULL));
+    }
 }

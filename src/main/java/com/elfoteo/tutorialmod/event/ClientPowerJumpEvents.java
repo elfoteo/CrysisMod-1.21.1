@@ -38,8 +38,6 @@ public class ClientPowerJumpEvents {
         return jumpChargeMap.getOrDefault(player, 0f);
     }
 
-    private static final Set<UUID> approvedJumpers = new HashSet<>();
-
 
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
@@ -68,7 +66,6 @@ public class ClientPowerJumpEvents {
         float charge = getCurrentJumpCharge(player);
         if (!SuitUtils.tryDrainEnergy(player, JUMP_COST)) return;
 
-        approvedJumpers.add(player.getUUID()); // Allow client to perform jump
         jumpChargeMap.put(player, 0f);
     }
     @OnlyIn(Dist.CLIENT)
@@ -328,12 +325,12 @@ public class ClientPowerJumpEvents {
         }
 
         // Render the arc segments
-        for (int i = 0; i < arc.size() - 1; i++) {
-            Vector3f a = new Vector3f((float)arc.get(i).x, (float)arc.get(i).y, (float)arc.get(i).z);
-            Vector3f b = new Vector3f((float)arc.get(i + 1).x, (float)arc.get(i + 1).y, (float)arc.get(i + 1).z);
-            float alpha = ((float)i / arc.size());
-            renderTubeSegment(poseStack, buf, a, b, SIDES, RADIUS, R, G, B, A * (1 - alpha));
-        }
+//        for (int i = 0; i < arc.size() - 1; i++) {
+//            Vector3f a = new Vector3f((float)arc.get(i).x, (float)arc.get(i).y, (float)arc.get(i).z);
+//            Vector3f b = new Vector3f((float)arc.get(i + 1).x, (float)arc.get(i + 1).y, (float)arc.get(i + 1).z);
+//            float alpha = ((float)i / arc.size());
+//            renderTubeSegment(poseStack, buf, a, b, SIDES, RADIUS, R, G, B, A * (1 - alpha));
+//        }
 
         poseStack.popPose();
 

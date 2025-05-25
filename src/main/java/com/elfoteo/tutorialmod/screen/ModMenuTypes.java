@@ -1,5 +1,7 @@
 package com.elfoteo.tutorialmod.screen;
 import com.elfoteo.tutorialmod.TutorialMod;
+import com.elfoteo.tutorialmod.gui.BuyingVendingMachineMenu;
+import com.elfoteo.tutorialmod.gui.CreativeVendingMachineMenu;
 import com.elfoteo.tutorialmod.screen.custom.GrowthChamberMenu;
 import com.elfoteo.tutorialmod.screen.custom.PedestalMenu;
 import net.minecraft.core.registries.Registries;
@@ -17,6 +19,12 @@ public class ModMenuTypes {
             "pedestal_menu", PedestalMenu::new);
     public static final DeferredHolder<MenuType<?>, MenuType<GrowthChamberMenu>> GROWTH_CHAMBER_MENU = registerMenuType(
             "growth_chamber_menu", GrowthChamberMenu::new);
+    public static final DeferredHolder<MenuType<?>, MenuType<CreativeVendingMachineMenu>> CREATIVE_VENDING_MACHINE_MENU = registerMenuType(
+            "creative_vending_machine_menu", CreativeVendingMachineMenu::new);
+
+    public static final DeferredHolder<MenuType<?>, MenuType<BuyingVendingMachineMenu>> BUYING_VENDING_MACHINE_MENU = registerMenuType(
+            "buying_vending_machine_menu", BuyingVendingMachineMenu::new);
+
     private static <T extends AbstractContainerMenu> DeferredHolder<MenuType<?>, MenuType<T>> registerMenuType(
             String name,
             IContainerFactory<T> factory) {

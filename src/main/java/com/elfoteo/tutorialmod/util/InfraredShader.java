@@ -122,6 +122,9 @@ public class InfraredShader {
         }
     };
 
+    public static ShaderInstance RENDERTYPE_OUTLINE;
+    public static RenderStateShard.ShaderStateShard RENDERTYPE_OUTLINE_SHADER;
+
     public static RenderType INFRARED_SOLID_RENDERTYPE;
     public static ShaderInstance INFRARED_SOLID_SHADER;
     public static ShaderInstance INFRARED_ENTITY_SHADER;
@@ -132,7 +135,6 @@ public class InfraredShader {
     public static ShaderInstance INFRARED_PARTICLE_SHADER;
     public static RenderStateShard.ShaderStateShard INFRARED_SOLID_SHADER_SHARD;
     public static RenderStateShard.ShaderStateShard INFRARED_ARMOR_SHADER_SHARD;
-    public static RenderStateShard.ShaderStateShard NANOSUIT_OVERLAY_SHADER_SHARD;
     public static RenderStateShard.ShaderStateShard INFRARED_ITEM_SHADER_SHARD;
 
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_ENTITY_GENERIC;
@@ -148,8 +150,12 @@ public class InfraredShader {
             INFRARED_SOLID_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(com.elfoteo.tutorialmod.TutorialMod.MOD_ID, "infrared_entity"),
                     DefaultVertexFormat.POSITION_COLOR);
-
             INFRARED_SOLID_SHADER_SHARD = new RenderStateShard.ShaderStateShard(() -> INFRARED_SOLID_SHADER);
+
+            RENDERTYPE_OUTLINE = new ShaderInstance(event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(com.elfoteo.tutorialmod.TutorialMod.MOD_ID, "rendertype_outline"),
+                    DefaultVertexFormat.POSITION_TEX_COLOR);
+            RENDERTYPE_OUTLINE_SHADER = new RenderStateShard.ShaderStateShard(() -> RENDERTYPE_OUTLINE);
 
             INFRARED_ENTITY_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(com.elfoteo.tutorialmod.TutorialMod.MOD_ID, "infrared_entity"),
@@ -284,7 +290,7 @@ public class InfraredShader {
     private static CompositeRenderType createInfraredArmorCutoutNoCull(String name, ResourceLocation id) {
         CompositeState compositestate = RenderType.CompositeState.builder()
                 .setShaderState(INFRARED_ARMOR_SHADER_SHARD)
-                .setTextureState(new RenderStateShard.TextureStateShard(id, false, false))
+                .setTextureState(new RenderStateShard.TextureStateShard(id, true, false))
                 .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
                 .setCullState(RenderType.NO_CULL)
                 .setLightmapState(RenderType.LIGHTMAP)
@@ -311,16 +317,15 @@ public class InfraredShader {
     }
 
     @OnlyIn(Dist.CLIENT)
-    static final class CompositeRenderType extends RenderType {
-        static final BiFunction<ResourceLocation, RenderStateShard.CullStateShard, RenderType> OUTLINE = Util.memoize(
-                (texture, cull) -> RenderType.create("outline", DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS, 1536,
+    public static final class CompositeRenderType extends RenderType {
+        public static final BiFunction<ResourceLocation, RenderStateShard.CullStateShard, RenderType> OUTLINE = Util.memoize(
+                (texture, cull) -> RenderType.create("custom_outline", DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS, 1536,
                         RenderType.CompositeState.builder()
-                                .setShaderState(RENDERTYPE_OUTLINE_SHADER)
+                                .setShaderState(InfraredShader.RENDERTYPE_OUTLINE_SHADER)
                                 .setTextureState(new RenderStateShard.TextureStateShard(texture, false, false))
                                 .setCullState(cull)
                                 .setDepthTestState(NO_DEPTH_TEST)
-                                .setOutputState(OUTLINE_TARGET)
-                                .createCompositeState(RenderType.OutlineProperty.IS_OUTLINE)
+                                .createCompositeState(true)
                 )
         );
 
@@ -347,11 +352,11 @@ public class InfraredShader {
             this.state = state;
 
             ICompositeStateAccessor accessor = (ICompositeStateAccessor) (Object) state;
-            IEmptyTextureStateAccessor textureAccessor = (IEmptyTextureStateAccessor) (Object) accessor.getTextureState();
+            IEmptyTextureStateAccessor textureAccessor = (IEmptyTextureStateAccessor) accessor.getTextureState();
             Optional<ResourceLocation> textureOpt = textureAccessor.callCutoutTexture();
 
             this.outline = accessor.getOutlineProperty() == RenderType.OutlineProperty.AFFECTS_OUTLINE
-                    ? textureOpt.map(texture -> (RenderType) OUTLINE.apply(texture, accessor.getCullState()))
+                    ? textureOpt.map(texture -> OUTLINE.apply(texture, accessor.getCullState()))
                     : Optional.empty();
 
             this.isOutline = accessor.getOutlineProperty() == RenderType.OutlineProperty.IS_OUTLINE;
