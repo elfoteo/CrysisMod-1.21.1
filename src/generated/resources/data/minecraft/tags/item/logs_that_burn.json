@@ -1,8 +1,8 @@
 {
   "values": [
-    "tutorialmod:bloodwood_log",
-    "tutorialmod:bloodwood_wood",
-    "tutorialmod:stripped_bloodwood_log",
-    "tutorialmod:stripped_bloodwood_wood"
+    "crysis:bloodwood_log",
+    "crysis:bloodwood_wood",
+    "crysis:stripped_bloodwood_log",
+    "crysis:stripped_bloodwood_wood"
   ]
 }

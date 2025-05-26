@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "crysis:block/creative_vending_machine" },
+    "facing=south": { "model": "crysis:block/creative_vending_machine", "y": 180 },
+    "facing=west":  { "model": "crysis:block/creative_vending_machine", "y": 270 },
+    "facing=east":  { "model": "crysis:block/creative_vending_machine", "y": 90 }
+  }
+}

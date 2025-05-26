@@ -1,9 +1,9 @@
 {
   "values": {
-    "tutorialmod:frostfire_ice": {
+    "crysis:frostfire_ice": {
       "burn_time": 2400
     },
-    "tutorialmod:starlight_ashes": {
+    "crysis:starlight_ashes": {
       "burn_time": 1200
     }
   }

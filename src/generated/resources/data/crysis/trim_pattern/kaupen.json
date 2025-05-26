@@ -1,0 +1,8 @@
+{
+  "asset_id": "crysis:kaupen",
+  "decal": false,
+  "description": {
+    "translate": "trim_pattern.crysis.kaupen"
+  },
+  "template_item": "crysis:kaupen_armor_trim_smithing_template"
+}

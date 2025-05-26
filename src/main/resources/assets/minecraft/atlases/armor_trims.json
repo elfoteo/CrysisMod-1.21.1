@@ -36,8 +36,8 @@
         "trims/models/armor/raiser_leggings",
         "trims/models/armor/host",
         "trims/models/armor/host_leggings",
-        "tutorialmod:trims/models/armor/kaupen",
-        "tutorialmod:trims/models/armor/kaupen_leggings"
+        "crysis:trims/models/armor/kaupen",
+        "crysis:trims/models/armor/kaupen_leggings"
 
       ],
       "palette_key": "trims/color_palettes/trim_palette",
@@ -56,7 +56,7 @@
         "gold_darker": "trims/color_palettes/gold_darker",
         "diamond_darker": "trims/color_palettes/diamond_darker",
         "netherite_darker": "trims/color_palettes/netherite_darker",
-        "bismuth": "tutorialmod:trims/color_palettes/bismuth"
+        "bismuth": "crysis:trims/color_palettes/bismuth"
       }
     }
   ]

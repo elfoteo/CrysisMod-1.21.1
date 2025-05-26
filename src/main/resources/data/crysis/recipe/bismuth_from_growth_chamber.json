@@ -1,0 +1,9 @@
+{
+  "type": "crysis:growth_chamber",
+  "ingredient": {
+    "item": "crysis:raw_bismuth"
+  },
+  "result": {
+    "id": "crysis:bismuth"
+  }
+}

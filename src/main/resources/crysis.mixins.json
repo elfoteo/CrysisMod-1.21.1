@@ -1,0 +1,37 @@
+{
+  "required": true,
+  "package": "com.elfoteo.crysis.mixins",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "nanosuit.upgrades.NanosuitNoSoundMixin",
+    "nanosuit.upgrades.NanosuitNoVibrations"
+  ],
+  "client": [
+    "BlockRenderDispatcherMixin",
+    "ClientLevelMixin",
+    "FogRendererMixin",
+    "LevelRendererlMixin",
+    "LiquidBlockRenderMixin",
+    "MixinRenderType_CompositeRenderType",
+    "ModelBlockRenderMixin",
+    "ModelRenderMixin",
+    "RenderTypeMixin",
+    "accessors.CompositeRenderTypeMixin",
+    "accessors.EmptyTextureStateShardMixin",
+    "accessors.ICompositeStateAccessor",
+    "accessors.ICompositeStateBuilderAccessor",
+    "accessors.TextureStateShardAccessor",
+    "layer.HumanoidArmorLayerMixin",
+    "layer.ItemInHandLayerMixin",
+    "layer.RenderLayerMixin",
+    "nanosuit.NanosuitLivingEntityRenderer",
+    "nanosuit.NanosuitNoParticles",
+    "nanosuit.NanosuitNoShadow",
+    "nanosuit.NanosuitPlayerRenderer",
+    "nanosuit.upgrades.NanosuitVisorInsightsMixin",
+    "particles.ParticleEngineMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

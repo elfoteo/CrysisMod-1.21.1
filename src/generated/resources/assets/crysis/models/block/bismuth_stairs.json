@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/stairs",
+  "textures": {
+    "bottom": "crysis:block/bismuth_block",
+    "side": "crysis:block/bismuth_block",
+    "top": "crysis:block/bismuth_block"
+  }
+}

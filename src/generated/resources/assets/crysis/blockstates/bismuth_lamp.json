@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "clicked=false": {
+      "model": "crysis:block/bismuth_lamp_off"
+    },
+    "clicked=true": {
+      "model": "crysis:block/bismuth_lamp_on"
+    }
+  }
+}

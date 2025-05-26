@@ -1,8 +1,8 @@
 {
   "values": [
-    "tutorialmod:nanosuit_helmet",
-    "tutorialmod:nanosuit_chestplate",
-    "tutorialmod:nanosuit_leggings",
-    "tutorialmod:nanosuit_boots"
+    "crysis:nanosuit_helmet",
+    "crysis:nanosuit_chestplate",
+    "crysis:nanosuit_leggings",
+    "crysis:nanosuit_boots"
   ]
 }

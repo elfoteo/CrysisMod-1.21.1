@@ -1,8 +1,8 @@
 {
   "values": [
-    "tutorialmod:bismuth_block",
-    "tutorialmod:bismuth_ore",
-    "tutorialmod:bismuth_lamp",
-    "tutorialmod:bismuth_deepslate_ore"
+    "crysis:bismuth_block",
+    "crysis:bismuth_ore",
+    "crysis:bismuth_lamp",
+    "crysis:bismuth_deepslate_ore"
   ]
 }

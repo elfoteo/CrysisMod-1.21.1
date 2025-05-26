@@ -1,0 +1,14 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "crysis:item/chisel"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "crysis:used": 1
+      },
+      "model": "crysis:item/chisel_used"
+    }
+  ]
+}

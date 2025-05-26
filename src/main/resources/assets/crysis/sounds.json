@@ -1,0 +1,46 @@
+{
+    "chisel_use": {
+        "subtitle": "sounds.crysis.chisel_use",
+        "sounds": [
+            "crysis:chisel_use"
+        ]
+    },
+    "magic_block_break": {
+        "subtitle": "sounds.crysis.magic_block_break",
+        "sounds": [
+            "crysis:magic_block_break"
+        ]
+    },
+    "magic_block_step": {
+        "subtitle": "sounds.crysis.magic_block_step",
+        "sounds": [
+            "crysis:magic_block_step"
+        ]
+    },
+    "magic_block_place": {
+        "subtitle": "sounds.crysis.magic_block_place",
+        "sounds": [
+            "crysis:magic_block_place"
+        ]
+    },
+    "magic_block_hit": {
+        "subtitle": "sounds.crysis.magic_block_hit",
+        "sounds": [
+            "crysis:magic_block_hit"
+        ]
+    },
+    "magic_block_fall": {
+        "subtitle": "sounds.crysis.magic_block_fall",
+        "sounds": [
+            "crysis:magic_block_fall"
+        ]
+    },
+    "bar_brawl": {
+        "sounds": [
+            {
+                "name": "crysis:bar_brawl",
+                "stream": true
+            }
+        ]
+    }
+}

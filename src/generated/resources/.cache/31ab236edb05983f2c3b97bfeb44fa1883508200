@@ -1,0 +1,10 @@
+// 1.21.1	2025-05-25T17:23:06.558241542	Tags for minecraft:block mod id crysis
+df3ce86c8725c8f6ef3461ec325ff3d23b3740cd data/crysis/tags/block/incorrect_for_bismuth_tool.json
+c814993db54eee37bef9ec1e0b7edd95ef5b924c data/crysis/tags/block/needs_bismuth_tool.json
+ec13b71ca6a4c408fbda9d042c1483d9e7edb2d4 data/minecraft/tags/block/fence_gates.json
+c1c70d648be6e9fa53087397f054b5289dbb63e9 data/minecraft/tags/block/fences.json
+08ef5edfa3db9db4699dbddd4f3e81da20e96e46 data/minecraft/tags/block/logs_that_burn.json
+bcfca3a3db7ae01ee49f87f682dfeeee168dc122 data/minecraft/tags/block/mineable/pickaxe.json
+2cb9bb565fb7b7231061a6e6c664764a2c222a5d data/minecraft/tags/block/needs_diamond_tool.json
+d3aa000d2b1d25d36cd5b40c8b9fcadc53e3c992 data/minecraft/tags/block/needs_iron_tool.json
+429db8fbfe413e060b9e753a64fd20eead9cd479 data/minecraft/tags/block/walls.json

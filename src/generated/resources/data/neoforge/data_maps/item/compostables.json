@@ -1,9 +1,9 @@
 {
   "values": {
-    "tutorialmod:radish": {
+    "crysis:radish": {
       "chance": 0.45
     },
-    "tutorialmod:radish_seeds": {
+    "crysis:radish_seeds": {
       "chance": 0.25
     }
   }
