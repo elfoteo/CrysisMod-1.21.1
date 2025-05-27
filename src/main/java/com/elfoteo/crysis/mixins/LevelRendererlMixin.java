@@ -30,16 +30,22 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.neoforge.client.ClientHooks;
 import org.joml.Matrix4f;
+import org.lwjgl.opengl.*;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @OnlyIn(Dist.CLIENT)
 @Mixin(LevelRenderer.class)
@@ -127,67 +133,200 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         ci.cancel();
     }
 
+    // ─────────────────────────────────────────────────────────────────────────────
+// Single "world‐space" trail texture at 16× resolution per block:
+    @Unique private int trailTextureId     = -1;
+    @Unique private int trailFramebufferId = -1;
+    @Unique private int lastWindowWidth    = -1;
+    @Unique private int lastWindowHeight   = -1;
+
+    // Cover a 1024×1024‐block region at 16×16 sub‐pixels each → 16384×16384 texture
+    @Unique private final int trailTexWidth  = 1024 * 16; // 16384
+    @Unique private final int trailTexHeight = 1024 * 16; // 16384
+
+    // Which "sub‐block" X/Z corresponds to texture coordinate (0,0)? (set per frame)
+    @Unique private int worldOffsetX = 0;
+    @Unique private int worldOffsetZ = 0;
+
+    /**
+     * Allocate (or re-allocate) the 16384×16384 R8 trail texture.
+     * Clears its contents to zero so no garbage appears the first frame.
+     */
+    @Unique
+    private void allocateOrResizeTrailTexture() {
+        int winW = Minecraft.getInstance().getWindow().getWidth();
+        int winH = Minecraft.getInstance().getWindow().getHeight();
+
+        // If already allocated and window size hasn't changed, do nothing.
+        if (trailTextureId != -1 && lastWindowWidth == winW && lastWindowHeight == winH) {
+            return;
+        }
+
+        // Delete old FBO + texture if they exist
+        if (trailFramebufferId != -1) {
+            GL30.glDeleteFramebuffers(trailFramebufferId);
+            trailFramebufferId = -1;
+        }
+        if (trailTextureId != -1) {
+            GL11.glDeleteTextures(trailTextureId);
+            trailTextureId = -1;
+        }
+
+        lastWindowWidth  = winW;
+        lastWindowHeight = winH;
+
+        // 1) Create a new 16384×16384 r16 texture (single channel, 8-bit)
+        trailTextureId = GL11.glGenTextures();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, trailTextureId);
+        GL11.glTexImage2D(
+                GL11.GL_TEXTURE_2D,
+                0,
+                GL30.GL_R16,          // Single channel, 8-bit format
+                trailTexWidth,
+                trailTexHeight,
+                0,
+                GL11.GL_RED,         // Single red channel
+                GL11.GL_UNSIGNED_BYTE,
+                (ByteBuffer) null
+        );
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+
+        // 2) Attach to a new FBO so we can clear it
+        trailFramebufferId = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, trailFramebufferId);
+        GL30.glFramebufferTexture2D(
+                GL30.GL_FRAMEBUFFER,
+                GL30.GL_COLOR_ATTACHMENT0,
+                GL11.GL_TEXTURE_2D,
+                trailTextureId,
+                0
+        );
+        if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
+            throw new IllegalStateException("World-trail framebuffer is incomplete!");
+        }
+
+        // 3) Clear it to zero (no heat) so no garbage remains
+        GL11.glViewport(0, 0, trailTexWidth, trailTexHeight);
+        GL11.glClearColor(0f, 0f, 0f, 0f);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+
+        // 4) Unbind framebuffer + texture
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+
+        // 5) Initialize worldOffsetX/Z so camera is centered in this 16384×16384 region
+        Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        int camSubX = (int) Math.floor(camPos.x * 16.0); // "sub‐block" X
+        int camSubZ = (int) Math.floor(camPos.z * 16.0); // "sub‐block" Z
+        worldOffsetX = camSubX - (trailTexWidth  / 2);  // 8192 = 16384/2
+        worldOffsetZ = camSubZ - (trailTexHeight / 2);  // 8192 = 16384/2
+    }
+
+    // Add these fields to your class
+    @Unique private final Map<RenderType, Long> lastCallTimes = new HashMap<>();
+    @Unique private final Map<RenderType, Float> cachedDeltaTimes = new HashMap<>();
+
+    /**
+     * Get delta time in seconds since the last call for this specific RenderType.
+     * First call for a RenderType returns 0.0f.
+     *
+     * @param renderType The render type to track timing for
+     * @return Delta time in seconds since last call, or 0.0f for first call
+     */
+    @Unique
+    private float getDeltaTimeFor(RenderType renderType) {
+        long currentTime = System.nanoTime();
+        Long lastTime = lastCallTimes.get(renderType);
+
+        if (lastTime == null) {
+            // First call for this RenderType
+            lastCallTimes.put(renderType, currentTime);
+            cachedDeltaTimes.put(renderType, 0.0f);
+            return 0.0f;
+        }
+
+        // Calculate delta in seconds
+        float deltaSeconds = (currentTime - lastTime) / 1_000_000_000.0f;
+
+        // Update tracking
+        lastCallTimes.put(renderType, currentTime);
+        cachedDeltaTimes.put(renderType, deltaSeconds);
+
+        return deltaSeconds;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
     @Inject(method = "renderSectionLayer", at = @At("HEAD"), cancellable = true)
-    private void renderSectionLayer(RenderType renderType,
-                                    double x,
-                                    double y,
-                                    double z,
-                                    Matrix4f frustrumMatrix,
-                                    Matrix4f projectionMatrix,
-                                    CallbackInfo ci) {
+    private void renderSectionLayer(
+            RenderType renderType,
+            double x, double y, double z,
+            Matrix4f frustrumMatrix,
+            Matrix4f projectionMatrix,
+            CallbackInfo ci
+    ) {
         RenderSystem.assertOnRenderThread();
         renderType.setupRenderState();
 
+        // 1) Ensure our 16384×16384 trail texture exists (allocate on first use)
+        if (trailTextureId == -1) {
+            allocateOrResizeTrailTexture();
+        }
+
+        // 2) Vanilla translucent‐sorting logic (unchanged)
         if (renderType == RenderType.translucent()) {
             this.minecraft.getProfiler().push("translucent_sort");
             double d0 = x - this.xTransparentOld;
             double d1 = y - this.yTransparentOld;
             double d2 = z - this.zTransparentOld;
-            if (d0 * d0 + d1 * d1 + d2 * d2 > (double)1.0F) {
+            if (d0 * d0 + d1 * d1 + d2 * d2 > 1.0D) {
                 int i = SectionPos.posToSectionCoord(x);
                 int j = SectionPos.posToSectionCoord(y);
                 int k = SectionPos.posToSectionCoord(z);
-                boolean flag = i != SectionPos.posToSectionCoord(this.xTransparentOld) || k != SectionPos.posToSectionCoord(this.zTransparentOld) || j != SectionPos.posToSectionCoord(this.yTransparentOld);
+                boolean flag = i != SectionPos.posToSectionCoord(this.xTransparentOld)
+                        || k != SectionPos.posToSectionCoord(this.zTransparentOld)
+                        || j != SectionPos.posToSectionCoord(this.yTransparentOld);
                 this.xTransparentOld = x;
                 this.yTransparentOld = y;
                 this.zTransparentOld = z;
                 int l = 0;
-                ObjectListIterator var21 = this.visibleSections.iterator();
-
-                while(var21.hasNext()) {
-                    SectionRenderDispatcher.RenderSection sectionrenderdispatcher$rendersection = (SectionRenderDispatcher.RenderSection)var21.next();
-                    if (l < 15 && (flag || sectionrenderdispatcher$rendersection.isAxisAlignedWith(i, j, k)) && sectionrenderdispatcher$rendersection.resortTransparency(renderType, this.sectionRenderDispatcher)) {
+                ObjectListIterator<SectionRenderDispatcher.RenderSection> var21 =
+                        this.visibleSections.iterator();
+                while (var21.hasNext()) {
+                    SectionRenderDispatcher.RenderSection section = var21.next();
+                    if (l < 15
+                            && (flag || section.isAxisAlignedWith(i, j, k))
+                            && section.resortTransparency(renderType, this.sectionRenderDispatcher)) {
                         ++l;
                     }
                 }
             }
-
             this.minecraft.getProfiler().pop();
         }
-
         this.minecraft.getProfiler().push("filterempty");
         this.minecraft.getProfiler().popPush(() -> "render_" + renderType);
-        boolean solidPass = renderType != RenderType.translucent();
+
+        boolean solidPass = (renderType != RenderType.translucent());
         ObjectListIterator<SectionRenderDispatcher.RenderSection> it =
                 this.visibleSections.listIterator(solidPass ? 0 : this.visibleSections.size());
 
-        // ─── A) Choose the correct ShaderInstance for this RenderType:
-        ShaderInstance shaderinstance;
+        // 3) Select the appropriate infrared shader
+        ShaderInstance shaderInstance;
         if (renderType == RenderType.solid()) {
-            shaderinstance = InfraredShader.Blocks.SOLID_SHADER;
+            shaderInstance = InfraredShader.Blocks.SOLID_SHADER;
         } else if (renderType == RenderType.cutout()) {
-            shaderinstance = InfraredShader.Blocks.CUTOUT_SHADER;
+            shaderInstance = InfraredShader.Blocks.CUTOUT_SHADER;
         } else if (renderType == RenderType.cutoutMipped()) {
-            shaderinstance = InfraredShader.Blocks.CUTOUT_MIPPED_SHADER;
+            shaderInstance = InfraredShader.Blocks.CUTOUT_MIPPED_SHADER;
         } else if (renderType == RenderType.translucent()) {
-            shaderinstance = InfraredShader.Blocks.TRANSLUCENT_SHADER;
+            shaderInstance = InfraredShader.Blocks.TRANSLUCENT_SHADER;
         } else if (renderType == RenderType.tripwire()) {
-            shaderinstance = InfraredShader.Blocks.TRIPWIRE_SHADER;
+            shaderInstance = InfraredShader.Blocks.TRIPWIRE_SHADER;
         } else {
-            shaderinstance = InfraredShader.Blocks.SOLID_SHADER;
+            shaderInstance = InfraredShader.Blocks.SOLID_SHADER;
         }
 
-        // ─── B) Build up to 16 “hot” entities in camera‐relative coords:
+        // 4) Gather up to 16 nearby "hot" entities
         Camera camera = this.minecraft.gameRenderer.getMainCamera();
         Vec3 camPos = camera.getPosition();
         double searchRadius = 20.0;
@@ -197,75 +336,116 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         );
         List<Entity> nearby = this.minecraft.level.getEntities(null, box);
 
-        float[] entityData = new float[64];  // 16 × (x,y,z,radius)
-        int    count = 0;
+        float[] entityData = new float[128]; // 16 × (2 × vec4)
+        int count = 0;
         for (Entity e : nearby) {
             if (count >= 16) break;
-
-            // Absolute entity world position:
             Vec3 epWorld = e.position();
-            // Convert to camera-relative:
-            float ex = (float)(epWorld.x - camPos.x);
-            float ey = (float)(epWorld.y - camPos.y);
-            float ez = (float)(epWorld.z - camPos.z);
+            float ex = (float) (epWorld.x - camPos.x);
+            float ey = (float) (epWorld.y - camPos.y);
+            float ez = (float) (epWorld.z - camPos.z);
 
-            // Choose a radius for the “hot spot”:
-            float radius = 1.0f;
-            if (e instanceof LivingEntity) {
-                radius = 3.0f;
-            } else if (e instanceof ItemEntity) {
-                radius = 1.0f;
-            }
+            float width  = e.getBbWidth()  * 4 * e.getBbHeight();
+            float height = e.getBbHeight() * 4 * e.getBbHeight();
+            ey += e.getBbHeight() / 2.0F;
 
-            int base = count * 4;
+            int base = count * 8;
             entityData[base + 0] = ex;
             entityData[base + 1] = ey;
             entityData[base + 2] = ez;
-            entityData[base + 3] = radius;
+            entityData[base + 3] = width;
+            entityData[base + 4] = height;
+            entityData[base + 5] = 0f; // unused
+            entityData[base + 6] = 0f; // unused
+            entityData[base + 7] = 0f; // unused
             count++;
         }
 
-        // ─── D) Upload the usual uniforms (matrices, chunk offset, etc.)
-        shaderinstance.setDefaultUniforms(
+        // 5) Apply the shader and upload uniforms
+        shaderInstance.setDefaultUniforms(
                 VertexFormat.Mode.QUADS,
                 frustrumMatrix,
                 projectionMatrix,
                 this.minecraft.getWindow()
         );
-        shaderinstance.apply();
+        shaderInstance.apply();
 
-        // ─── C) Upload EntityData[] and EntityCount to the shader:
-        Uniform ec = shaderinstance.getUniform("EntityCount");
-        if (ec != null){
+        // Upload EntityCount
+        var ec = shaderInstance.getUniform("EntityCount");
+        if (ec != null) {
             ec.set(count);
             ec.upload();
         }
 
-        Uniform ed = shaderinstance.getUniform("EntityData");
+        // Upload EntityData[]
+        var ed = shaderInstance.getUniform("EntityData");
         if (ed != null) {
             ed.set(entityData);
             ed.upload();
         }
 
-        Uniform cwp = shaderinstance.getUniform("CameraPos");
-        if (cwp != null){
-            Vec3 cam = this.minecraft.gameRenderer.getMainCamera().getPosition();
-            cwp.set((float)cam.x, (float)cam.y, (float)cam.z);
+        // Upload CameraPos
+        var cwp = shaderInstance.getUniform("CameraPos");
+        if (cwp != null) {
+            Vec3 c = this.minecraft.gameRenderer.getMainCamera().getPosition();
+            cwp.set((float) c.x, (float) c.y, (float) c.z);
             cwp.upload();
         }
 
-        // ─── E) Draw each section exactly as before, but now with our updated shader
-        Uniform chunkOffset = shaderinstance.CHUNK_OFFSET;
+        // 6) Upload "sub‐block" world offsets (already ×16 in Java)
+        var uOffX = shaderInstance.getUniform("u_worldOffsetX");
+        if (uOffX != null) {
+            uOffX.set(worldOffsetX);
+            uOffX.upload();
+        }
+        var uOffZ = shaderInstance.getUniform("u_worldOffsetZ");
+        if (uOffZ != null) {
+            uOffZ.set(worldOffsetZ);
+            uOffZ.upload();
+        }
+
+        var dt = shaderInstance.getUniform("u_deltaTime");
+        if (dt != null) {
+            System.out.println(dt);
+            dt.set(getDeltaTimeFor(renderType));
+            dt.upload();
+        }
+
+        // 7) Bind the 16384×16384 trail texture as:
+        //    • image unit 1 (for write) → matches layout(binding=1) in GLSL
+        //    • sampler unit 2 (for read)  → matches layout(binding=2) in GLSL
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, trailTextureId);
+        GL42.glBindImageTexture(
+                /* unit     */ 1,
+                /* texture  */ trailTextureId,
+                /* level    */ 0,
+                /* layered  */ false,
+                /* layer    */ 0,
+                /* access   */ GL15.GL_READ_WRITE,
+                /* format   */ GL30.GL_R16    // Changed to R16 format
+        );
+
+        GL13.glActiveTexture(GL13.GL_TEXTURE2);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, trailTextureId);
+        var trailSampler = shaderInstance.getUniform("TrailSampler");
+        if (trailSampler != null) {
+            trailSampler.set(2);
+            trailSampler.upload();
+        }
+
+        // 8) Draw each chunk section exactly as vanilla, but with our custom shader
+        var chunkOffset = shaderInstance.getUniform("ChunkOffset");
         while (solidPass ? it.hasNext() : it.hasPrevious()) {
             SectionRenderDispatcher.RenderSection section =
                     solidPass ? it.next() : it.previous();
             if (!section.getCompiled().isEmpty(renderType)) {
                 VertexBuffer vb = section.getBuffer(renderType);
-                BlockPos origin = section.getOrigin();
+                var origin = section.getOrigin();
                 if (chunkOffset != null) {
-                    float ox = (float)(origin.getX() - x);
-                    float oy = (float)(origin.getY() - y);
-                    float oz = (float)(origin.getZ() - z);
+                    float ox = (float) (origin.getX() - x);
+                    float oy = (float) (origin.getY() - y);
+                    float oz = (float) (origin.getZ() - z);
                     chunkOffset.set(ox, oy, oz);
                     chunkOffset.upload();
                 }
@@ -274,14 +454,17 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             }
         }
 
+        // Reset chunkOffset to zero
         if (chunkOffset != null) {
             chunkOffset.set(0f, 0f, 0f);
             chunkOffset.upload();
         }
-        shaderinstance.clear();
+
+        // 9) Clean up exactly as vanilla
+        shaderInstance.clear();
         VertexBuffer.unbind();
         this.minecraft.getProfiler().pop();
-        net.neoforged.neoforge.client.ClientHooks.dispatchRenderStage(
+        ClientHooks.dispatchRenderStage(
                 renderType,
                 (LevelRenderer) (Object) this,
                 frustrumMatrix,

@@ -1,114 +1,127 @@
-#version 150
-
+#version 420
 #moj_import <fog.glsl>
 
-uniform sampler2D Sampler0;       // block atlas (unused here)
-uniform vec4     ColorModulator;  // (unused if you want pure heat)
+// ──────────────────────────────────────────────────────────────────────────────
+// Uniforms provided by Minecraft / Java mixin
+uniform sampler2D Sampler0;
+uniform vec4     ColorModulator;
 uniform float    FogStart;
 uniform float    FogEnd;
 uniform vec4     FogColor;
+uniform float    EntityData[128];
+uniform int      EntityCount;
+uniform vec3     CameraPos;
 
-// 16 × vec4(x, y, z, radius) FOR ENTITIES, all in camera‐relative space
-uniform float EntityData[64];
-uniform int   EntityCount;
+uniform int      u_worldOffsetX;
+uniform int      u_worldOffsetZ;
+uniform float u_deltaTime;
 
-// NEW: camera’s world‐space position (same uniform as in VSH)
-uniform vec3 CameraPos;
+layout(binding = 1, r16) uniform image2D  u_TrailRW;  // Changed to r16 format
+layout(binding = 2)     uniform sampler2D TrailSampler;
 
-in float vertexDistance;   // world‐space distance for fog
-in float blockLight;       // ∈ [0..1]
-in float skyLight;         // ∈ [0..1]
-in vec2  texCoord0;        // unused here
-in vec3  worldPosition;    // camera‐relative world position
+in float  vertexDistance;
+in float  blockLight;
+in float  skyLight;
+in vec3   worldPosition;
+out vec4  fragColor;
 
-out vec4 fragColor;
-
-// “cold→hot” color ramp:
+// ──────────────────────────────────────────────────────────────────────────────
+// Quantized infrared-style heat color ramp with 16 discrete levels
 vec3 heatColor(float t) {
-    if (t < 0.1)
-    return mix(vec3(0.35, 0.05, 0.10),
-    vec3(0.25, 0.05, 0.12),
-    t / 0.1);
-    else if (t < 0.3)
-    return mix(vec3(0.25, 0.05, 0.12),
-    vec3(0.07, 0.04, 0.18),
-    (t - 0.1) / 0.2);
-    else if (t < 0.5)
-    return mix(vec3(0.07, 0.04, 0.18),
-    vec3(0.0,  0.0,  0.23),
-    (t - 0.3) / 0.2);
-    else
-    return vec3(0.0, 0.0, 0.23);
+    t = clamp(t, 0.0, 1.0);
+
+    // Quantize to 16 levels (0-15) for discrete color bands
+    float quantized = floor(t * 15.0) / 15.0;
+
+    if (quantized < 0.33) {
+        // Cold to warm (Blue to Red) - levels 0-5
+        return mix(vec3(0.0, 0.0, 0.23), vec3(1.0, 0.0, 0.0), quantized / 0.33);
+    } else {
+        // Red to hot white - levels 6-15
+        return mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), (quantized - 0.33) / 0.67);
+    }
 }
 
-// Compute “entity heat” at a given position (pos)
-// Linear fade from d = radius → d = 2*radius
 float computeEntityHeatAt(vec3 pos) {
     float bestHeat = 0.0;
     for (int i = 0; i < EntityCount; i++) {
-        int base   = i * 4;
-        vec3 ep    = vec3(
+        int base = i * 8;
+        vec3 ep = vec3(
         EntityData[base + 0],
         EntityData[base + 1],
         EntityData[base + 2]
         );
-        float radius = EntityData[base + 3];
-        float d      = distance(pos, ep);
+        float width  = EntityData[base + 3];
+        float height = EntityData[base + 4];
 
-        // NEW: falloff zone = radius (instead of a fixed 2.0)
-        float falloff = radius;
-        // Inside d ≤ radius        → t = 1.0
-        // At d ≥ radius + falloff  → t = 0.0
-        float t = clamp((radius + falloff - d) / falloff, 0.0, 1.0);
+        vec3 diff = pos - ep;
+        float dx = diff.x / width;
+        float dy = diff.y / height;
+        float dz = diff.z / width;
+        float falloff = width + height;
+        float dist2 = dx * dx + dy * dy + dz * dz;
+        float t = clamp(1.0 - dist2 * falloff, 0.0, 1.0);
+
         bestHeat = max(bestHeat, t);
     }
     return bestHeat;
 }
 
-
 void main() {
-    //
-    // STEP A: Recover *absolute* world‐space position of this fragment
-    //         worldPosition = (blockWorldPos − cameraWorldPos), so:
-    vec3 absPos = worldPosition + CameraPos;
-    //    Now absPos is the true (x, y, z) of this fragment in world coordinates.
-
-    //
-    // STEP B: Quantize (snap) absPos to a 1/16‐block grid that’s *anchored* at world origin.
-    //   Multiply by 16, floor, then divide by 16. This forces a stepped grid of size 1/16:
+    // ─── 1) Compute base heat ───────────────────────────────────────────────
+    vec3 absPos     = worldPosition + CameraPos;
     vec3 snappedAbs = floor(absPos * 16.0) / 16.0;
-
-    //
-    // STEP C: Convert that snapped absolute position back into camera‐relative space,
-    //         so we can compare “snapped” vs. “entityData” (which is in camera‐relative).
     vec3 snappedRel = snappedAbs - CameraPos;
 
-    //
-    // STEP D: Compute block‐light + sky‐light heat (unchanged):
-    float lightHeat = clamp(blockLight * 0.8 + skyLight * 0.2, 0.0, 1.0);
-
-    //
-    // STEP E: Compute “entity heat” at the SNAPPED, camera‐relative position:
+    float lightHeat  = clamp(blockLight * 0.8 + skyLight * 0.2, 0.0, 1.0);
     float entityHeat = computeEntityHeatAt(snappedRel);
+    float combined   = max(lightHeat, entityHeat);
 
-    //
-    // STEP F: Combine them (choose whichever is “hotter”)
-    float combined = max(lightHeat, entityHeat);
+    // ─── 2) Sub‐block position ───────────────────────────────────────────────
+    ivec2 blockPos = ivec2(
+    floor(absPos.x * 16.0),
+    floor(absPos.z * 16.0)
+    );
 
-    //
-    // STEP G: Invert so that combined=1→red, 0→blue, then map through heatColor()
-    float inv  = 1.0 - combined;
-    vec3  heat = heatColor(inv);
+    // ─── 3) Subtract Java‐side world offset ──────────────────────────────────
+    blockPos.x -= u_worldOffsetX;
+    blockPos.y -= u_worldOffsetZ;
 
-    //
-    // STEP H: Paint the entire fragment this single solid heat‐color. Alpha=1.
-    vec4 color = vec4(heat, 1.0);
+    // Skip rendering if out of bounds
+    if (blockPos.x < 0 || blockPos.x >= 16384 ||
+    blockPos.y < 0 || blockPos.y >= 16384) {
+        vec3 heat = heatColor(combined);
+        fragColor = linear_fog(vec4(heat, 1.0), vertexDistance, FogStart, FogEnd, FogColor);
+        return;
+    }
 
-    //
-    // STEP I: Apply vanilla linear fog and output:
-    fragColor = linear_fog(color,
+    // ─── 4) GPU Trail Heat Fade + Accumulation ───────────────────────────────
+    // Read the single red channel containing the heat value (0.0-1.0)
+    float oldHeat = texelFetch(TrailSampler, blockPos, 0).r;
+
+    // Exponential decay - decays faster when hot, slower when cool
+    float decayRate = 0.2; // Controls how fast the exponential decay is
+    float fadedHeat = oldHeat * exp(-decayRate * u_deltaTime);
+
+    // Apply a minimum threshold to ensure it eventually reaches zero
+    // This prevents floating point precision issues from keeping tiny values alive
+    const float minThreshold = 0.001;
+    if (fadedHeat < minThreshold) {
+        fadedHeat = 0.0;
+    }
+
+    float newHeat = max(fadedHeat, combined); // Accumulate heat
+
+
+    // Store only the heat value in the red channel
+    imageStore(u_TrailRW, blockPos, vec4(newHeat, 0.0, 0.0, 0.0));
+
+    // ─── 5) Final shaded output with fog ─────────────────────────────────────
+    // Convert the heat value back to color for rendering
+    vec3 heatRGB = heatColor(newHeat);
+    fragColor = linear_fog(
+    vec4(heatRGB, 1.0),
     vertexDistance,
-    FogStart,
-    FogEnd,
-    FogColor);
+    FogStart, FogEnd, FogColor
+    );
 }
