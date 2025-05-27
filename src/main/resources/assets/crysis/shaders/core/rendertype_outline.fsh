@@ -14,5 +14,5 @@ void main() {
     if (color.a == 0.0) {
         discard;
     }
-    fragColor = vec4(ColorModulator.rgb * vertexColor.rgb * vec3(1f, 1f, 1f), ColorModulator.a);
+    fragColor = vec4(ColorModulator.rgb * vertexColor.rgb * vec3(1.0, 1.0, 1.0), ColorModulator.a);
 }

@@ -26,6 +26,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 
+import java.io.IOException;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -140,6 +141,50 @@ public class InfraredShader {
     private static Function<ResourceLocation, RenderType> NANOSUIT_OVERLAY_RENDER_TYPE;
     private static Function<ResourceLocation, RenderType> INFRARED_ENTITY_TRANSLUCENT_CULL_FOR_ITEMS;
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_CUTOUT_NO_CULL;
+
+    @OnlyIn(Dist.CLIENT)
+    @EventBusSubscriber(modid = CrysisMod.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
+    public static class Blocks {
+
+        public static ShaderInstance SOLID_SHADER;
+        public static ShaderInstance CUTOUT_SHADER;
+        public static ShaderInstance CUTOUT_MIPPED_SHADER;
+        public static ShaderInstance TRANSLUCENT_SHADER;
+        public static ShaderInstance TRIPWIRE_SHADER;
+
+        @SubscribeEvent
+        public static void onRegisterShaders(RegisterShadersEvent event) {
+            try {
+                SOLID_SHADER = new ShaderInstance(
+                        event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "blocks/rendertype_solid"),
+                        DefaultVertexFormat.BLOCK);
+
+                CUTOUT_SHADER = new ShaderInstance(
+                        event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "blocks/rendertype_cutout"),
+                        DefaultVertexFormat.BLOCK);
+
+                CUTOUT_MIPPED_SHADER = new ShaderInstance(
+                        event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "blocks/rendertype_cutout_mipped"),
+                        DefaultVertexFormat.BLOCK);
+
+                TRANSLUCENT_SHADER = new ShaderInstance(
+                        event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "blocks/rendertype_translucent"),
+                        DefaultVertexFormat.BLOCK);
+
+                TRIPWIRE_SHADER = new ShaderInstance(
+                        event.getResourceProvider(),
+                        ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "blocks/rendertype_tripwire"),
+                        DefaultVertexFormat.BLOCK);
+
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to load block shaders", e);
+            }
+        }
+    }
 
     @SubscribeEvent
     public static void onRegisterShaders(RegisterShadersEvent event) {

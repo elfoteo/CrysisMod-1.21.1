@@ -25,18 +25,16 @@ vec3 heatColor(float t) {
 float sampleHeat(vec2 coord, float offset, float baseDist) {
     float acc = 0.0;
     float count = 0.0;
-    for (int x = -1; x <= 1; ++x) {
-        for (int y = -1; y <= 1; ++y) {
-            vec2 offsetCoord = coord + vec2(x, y) * offset;
-            vec4 tex = texture(Sampler0, offsetCoord);
-            if (tex.a > 0.1) {
-                // Estimate pseudo heat from brightness & alpha
-                float brightness = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-                acc += brightness;
-                count += 1.0;
-            }
-        }
+
+    vec2 offsetCoord = coord + vec2(0, 0) * offset;
+    vec4 tex = texture(Sampler0, offsetCoord);
+    if (tex.a > 0.1) {
+        // Estimate pseudo heat from brightness & alpha
+        float brightness = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+        acc += brightness;
+        count += 1.0;
     }
+
     return (count > 0.0) ? acc / count : 0.0;
 }
 
