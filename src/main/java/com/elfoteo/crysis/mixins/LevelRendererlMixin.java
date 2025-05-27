@@ -149,8 +149,13 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
     @Unique private int worldOffsetZ = 0;
 
     /**
-     * Allocate (or re-allocate) the 16384×16384 R8 trail texture.
+     * Allocate (or re‐allocate) the 16384×16384 R8 trail texture.
      * Clears its contents to zero so no garbage appears the first frame.
+     *
+     * SAVES & RESTORES:
+     *   • GL_FRAMEBUFFER_BINDING
+     *   • GL_TEXTURE_BINDING_2D
+     *   • GL_VIEWPORT
      */
     @Unique
     private void allocateOrResizeTrailTexture() {
@@ -175,13 +180,23 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         lastWindowWidth  = winW;
         lastWindowHeight = winH;
 
-        // 1) Create a new 16384×16384 r16 texture (single channel, 8-bit)
+        // ——————————————— SAVE CURRENT GL STATE ———————————————
+        // 1) Save currently bound FBO
+        int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        // 2) Save currently bound TEXTURE_2D
+        int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        // 3) Save current viewport (x, y, width, height)
+        int[] prevViewport = new int[4];
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+
+        // ——————————————— ALLOCATE & CLEAR NEW TRAIL TEXTURE ———————————————
+        // 1) Create a new 16384×16384 r16 texture (single channel, 8‐bit)
         trailTextureId = GL11.glGenTextures();
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, trailTextureId);
         GL11.glTexImage2D(
                 GL11.GL_TEXTURE_2D,
                 0,
-                GL30.GL_R16,          // Single channel, 8-bit format
+                GL30.GL_R16,          // Single channel, 8‐bit format
                 trailTexWidth,
                 trailTexHeight,
                 0,
@@ -203,7 +218,7 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
                 0
         );
         if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            throw new IllegalStateException("World-trail framebuffer is incomplete!");
+            throw new IllegalStateException("World‐trail framebuffer is incomplete!");
         }
 
         // 3) Clear it to zero (no heat) so no garbage remains
@@ -211,11 +226,20 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         GL11.glClearColor(0f, 0f, 0f, 0f);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
 
-        // 4) Unbind framebuffer + texture
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        // ——————————————— RESTORE PREVIOUS GL STATE ———————————————
+        // 4) Re‐bind the previous framebuffer
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
+        // 5) Re‐bind the previous texture
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex);
+        // 6) Restore the previous viewport
+        GL11.glViewport(
+                prevViewport[0],
+                prevViewport[1],
+                prevViewport[2],
+                prevViewport[3]
+        );
 
-        // 5) Initialize worldOffsetX/Z so camera is centered in this 16384×16384 region
+        // 7) Initialize worldOffsetX/Z so camera is centered in this 16384×16384 region
         Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         int camSubX = (int) Math.floor(camPos.x * 16.0); // "sub‐block" X
         int camSubZ = (int) Math.floor(camPos.z * 16.0); // "sub‐block" Z
@@ -265,6 +289,7 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             Matrix4f projectionMatrix,
             CallbackInfo ci
     ) {
+        if (Nanosuit.currentClientMode != SuitModes.VISOR.get()) return;
         RenderSystem.assertOnRenderThread();
         renderType.setupRenderState();
 
@@ -312,19 +337,8 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
 
         // 3) Select the appropriate infrared shader
         ShaderInstance shaderInstance;
-        if (renderType == RenderType.solid()) {
-            shaderInstance = InfraredShader.Blocks.SOLID_SHADER;
-        } else if (renderType == RenderType.cutout()) {
-            shaderInstance = InfraredShader.Blocks.CUTOUT_SHADER;
-        } else if (renderType == RenderType.cutoutMipped()) {
-            shaderInstance = InfraredShader.Blocks.CUTOUT_MIPPED_SHADER;
-        } else if (renderType == RenderType.translucent()) {
-            shaderInstance = InfraredShader.Blocks.TRANSLUCENT_SHADER;
-        } else if (renderType == RenderType.tripwire()) {
-            shaderInstance = InfraredShader.Blocks.TRIPWIRE_SHADER;
-        } else {
-            shaderInstance = InfraredShader.Blocks.SOLID_SHADER;
-        }
+        // (we’ve hard‐coded SOLID_SHADER for now)
+        shaderInstance = InfraredShader.Blocks.SOLID_SHADER;
 
         // 4) Gather up to 16 nearby "hot" entities
         Camera camera = this.minecraft.gameRenderer.getMainCamera();
@@ -406,14 +420,21 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
 
         var dt = shaderInstance.getUniform("u_deltaTime");
         if (dt != null) {
-            System.out.println(dt);
             dt.set(getDeltaTimeFor(renderType));
             dt.upload();
         }
 
-        // 7) Bind the 16384×16384 trail texture as:
-        //    • image unit 1 (for write) → matches layout(binding=1) in GLSL
-        //    • sampler unit 2 (for read)  → matches layout(binding=2) in GLSL
+        // ——————————————— SAVE CURRENT ACTIVE TEXTURE & BINDINGS ———————————————
+        int prevActiveTex = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        // Save what is bound at unit 0
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        int prevTex0 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        // Save what is bound at unit 2
+        GL13.glActiveTexture(GL13.GL_TEXTURE2);
+        int prevTex2 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+
+        // ——————————————— BIND OUR TRAIL TEXTURE FOR READ/WRITE ———————————————
+        // Bind as image unit 1 (write) & sampler unit 2 (read)
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, trailTextureId);
         GL42.glBindImageTexture(
@@ -460,7 +481,30 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             chunkOffset.upload();
         }
 
-        // 9) Clean up exactly as vanilla
+        // 9) CLEAN UP: restore all altered GL state
+        //  9a) Un‐bind our image unit (unit 1 → no texture)
+        GL42.glBindImageTexture(
+                /* unit     */ 1,
+                /* texture  */ 0,
+                /* level    */ 0,
+                /* layered  */ false,
+                /* layer    */ 0,
+                /* access   */ GL15.GL_READ_WRITE,
+                /* format   */ GL30.GL_R16
+        );
+
+        //  9b) Restore texture‐unit 2’s binding
+        GL13.glActiveTexture(GL13.GL_TEXTURE2);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex2);
+
+        //  9c) Restore texture‐unit 0’s binding
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex0);
+
+        //  9d) Restore whichever active texture was in use
+        GL13.glActiveTexture(prevActiveTex);
+
+        // 10) Clean up exactly as vanilla
         shaderInstance.clear();
         VertexBuffer.unbind();
         this.minecraft.getProfiler().pop();

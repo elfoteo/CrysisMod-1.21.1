@@ -148,7 +148,7 @@ public class Nanosuit {
 
         // If entering or exiting VISOR, force full relight (so darkness/lighting updates correctly)
         if (currentClientMode == SuitModes.VISOR.get() || newMode == SuitModes.VISOR.get()) {
-            Minecraft.getInstance().levelRenderer.allChanged();
+            //Minecraft.getInstance().levelRenderer.allChanged();
         }
 
         currentClientMode = newMode;

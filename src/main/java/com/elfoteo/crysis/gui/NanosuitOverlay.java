@@ -25,18 +25,24 @@ import org.joml.Matrix4f;
 @OnlyIn(Dist.CLIENT)
 @EventBusSubscriber(modid = CrysisMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public class NanosuitOverlay {
-    private static final ResourceLocation BASE_TEXTURE            = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/nanosuit_overlay_base.png");
-    private static final ResourceLocation ENERGY_FILL_TEXTURE     = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/energy_bar_fill.png");
-    private static final ResourceLocation ARMOR_MODE_FILL_TEXTURE = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/armor_mode_fill.png");
-    private static final ResourceLocation CLOAK_MODE_TEXTURE      = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/cloak_mode_fill.png");
-    private static final ResourceLocation VISOR_MODE_TEXTURE      = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/visor_mode_fill.png");
-    private static final ResourceLocation VIGNETTE_TEXTURE        = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/vignette.png");
+    private static final ResourceLocation BASE_TEXTURE                    = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/nanosuit_overlay_base.png");
+    private static final ResourceLocation ENERGY_BG_TEXTURE               = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/energy_bar_bg.png");
+    private static final ResourceLocation ENERGY_FILL_TEXTURE             = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/energy_bar_fill.png");
+    private static final ResourceLocation ARMOR_MODE_FILL_TEXTURE         = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/armor_mode_fill.png");
+    private static final ResourceLocation CLOAK_MODE_FILL_TEXTURE         = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/cloak_mode_fill.png");
+    private static final ResourceLocation VISOR_MODE_FILL_TEXTURE         = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/visor_mode_fill.png");
+    private static final ResourceLocation VIGNETTE_TEXTURE                = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/vignette.png");
+    private static final ResourceLocation LOW_ENERGY_OVERLAY_TEXTURE      = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/low_energy_overlay.png");
+    private static final ResourceLocation LOW_ENERGY_OVERLAY_TEXT_TEXTURE = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/low_energy_overlay_text.png");
 
     private static final int BASE_WIDTH   = 127, BASE_HEIGHT = 36, PADDING = 8;
     private static final Rect JUMP_BAR               = new Rect(12, 24, 113, 2);
     private static final Rect ARMOR_MODE_FILL_RECT   = new Rect(50, 28, 39, 6);
     private static final Rect CLOAK_MODE_FILL_RECT   = new Rect(15, 28, 37, 6);
     private static final Rect VISOR_MODE_FILL_RECT   = new Rect(87, 28, 37, 6);
+
+    private static final float CRITICAL_ENERGY_THRESHOLD = 0.3f;
+    private static final long CRITICAL_BLINK_INTERVAL_MS = 250L;
 
     private static float animatedEnergy = 1f;
     // How quickly (in units of “fraction per second”) the bar moves toward the true value:
@@ -55,9 +61,15 @@ public class NanosuitOverlay {
     private static boolean wasInCloakMode = false;
     private static final float VIGNETTE_FADE_IN_TIME = .3f;
 
+    // --- Fields to track energy draining and low‐energy overlay timing ---
+    private static float previousTargetEnergy = 1f;
+    private static long lowEnergyStartTime = 0L;
+    private static long lowEnergyEndTime = 0L;
+    private static final long LOW_ENERGY_DISPLAY_DURATION_MS = 3000L;
+
     @SubscribeEvent
     public static void onRenderHUD(RenderGuiLayerEvent.Pre event) {
-        if (!VanillaGuiLayers.PLAYER_HEALTH.equals(event.getName())) return;
+        if (!VanillaGuiLayers.SCOREBOARD_SIDEBAR.equals(event.getName())) return;
         Player player = Minecraft.getInstance().player;
         if (player == null || !SuitUtils.isWearingFullNanosuit(player)) return;
 
@@ -70,11 +82,20 @@ public class NanosuitOverlay {
         float dt = (now - lastTime) / 1000f;
         lastTime = now;
 
-        // ——— Energy interpolation is unchanged ———
-        float targetEnergy = Mth.clamp(
-                player.getData(ModAttachments.ENERGY) / (float) player.getData(ModAttachments.MAX_ENERGY),
-                0f, 1f
-        );
+        // ——— Compute the “true” energy fraction ———
+        float rawEnergy = player.getData(ModAttachments.ENERGY) / (float) player.getData(ModAttachments.MAX_ENERGY);
+        float targetEnergy = Mth.clamp(rawEnergy, 0f, 1f);
+
+        // ——— Detect if energy is being drained ———
+        boolean isDraining = (targetEnergy < previousTargetEnergy - 0.001f);
+        // If draining and below threshold and no active low‐energy overlay, start the 3s timer:
+        if (isDraining && targetEnergy < CRITICAL_ENERGY_THRESHOLD && now >= lowEnergyEndTime) {
+            lowEnergyStartTime = now;
+            lowEnergyEndTime = now + LOW_ENERGY_DISPLAY_DURATION_MS;
+        }
+        previousTargetEnergy = targetEnergy;
+
+        // ——— Energy interpolation (unchanged) ———
         if (Math.abs(animatedEnergy - targetEnergy) > 0.001f) {
             animatedEnergy += Mth.clamp(targetEnergy - animatedEnergy, -0.85f * dt, 0.85f * dt);
         } else {
@@ -117,9 +138,44 @@ public class NanosuitOverlay {
             renderCloakVignette(gui, sw, sh, vignetteAlpha);
         }
 
-        drawEnergyBar(gui, baseX, baseY, animatedEnergy);
+        drawEnergyBar(gui, baseX, baseY, animatedEnergy, targetEnergy);
         drawJumpBar(gui, baseX, baseY, displayedJump);
         drawModeFill(gui, baseX, baseY);
+
+        // ——— Draw low‐energy overlay around crosshair if active ———
+        if (now < lowEnergyEndTime) {
+            drawLowEnergyOverlay(gui, sw, sh, now);
+        }
+    }
+
+    private static void drawLowEnergyOverlay(GuiGraphics gui, int sw, int sh, long currentTime) {
+        // Compute scaled size: original is 64x16, aspect = 4:1
+        // We use 15% of screen width for overlay width
+        float targetWidth = sw * 0.15f;
+        float targetHeight = targetWidth * (16f / 64f); // = targetWidth * 0.25
+        int overlayW = Math.round(targetWidth);
+        int overlayH = Math.round(targetHeight);
+
+        // Centered around crosshair (which is screen center)
+        int xPos = (sw - overlayW) / 2;
+        int yPos = (sh - overlayH) / 2;
+
+        // Draw the background of the low‐energy overlay at full red tint
+        drawTexturedRect(gui, LOW_ENERGY_OVERLAY_TEXTURE, xPos, yPos, overlayW, overlayH, 1f, 1f, 1f, 0f, 0f, 1f);
+
+        // Compute pulsing alpha for the text overlay: 0.5s up, 0.5s down
+        long elapsed = currentTime - lowEnergyStartTime;
+        long cyclePosition = elapsed % 1000L; // 1000ms cycle
+        float phase = cyclePosition / 500f;
+        float textAlpha;
+        if (phase <= 1f) {
+            textAlpha = phase; // ramp up
+        } else {
+            textAlpha = 2f - phase; // ramp down
+        }
+
+        // Draw the low‐energy text overlay with computed alpha (red tint), same position/size
+        drawTexturedRect(gui, LOW_ENERGY_OVERLAY_TEXT_TEXTURE, xPos, yPos, overlayW, overlayH, 1f, 1f, 1f, 0f, 0f, textAlpha);
     }
 
     private static void renderCloakVignette(GuiGraphics guiGraphics, int width, int height, float alpha) {
@@ -143,33 +199,56 @@ public class NanosuitOverlay {
 
         BufferUploader.drawWithShader(builder.buildOrThrow());
         RenderSystem.disableBlend();
-
     }
 
-    private static void drawEnergyBar(GuiGraphics gui, int baseX, int baseY, float fraction) {
-        float R = 0.4f, G = 0.8f, B = 1f;
-        if (redBlinking && System.currentTimeMillis() < blinkEndTime) {
-            if ((System.currentTimeMillis() / BLINK_INTERVAL_MS) % 2 == 0) {
-                R = 1f; G = 0f; B = 0f;
-            }
-        } else {
-            redBlinking = false;
+    private static void drawEnergyBar(GuiGraphics gui, int baseX, int baseY, float fraction, float targetEnergy) {
+        // Determine if we're in critical energy state
+        boolean critical = targetEnergy < CRITICAL_ENERGY_THRESHOLD;
+        long now = System.currentTimeMillis();
+
+        // Draw the static nanosuit base
+        drawTexturedRect(gui, BASE_TEXTURE, baseX, baseY, BASE_WIDTH, BASE_HEIGHT, 1f, 1f, 1f, 1f, 1f);
+
+        // First: draw the energy background at offset (3,4) and size 122x16
+        float bgR = 1f, bgG = 1f, bgB = 1f;
+        if (critical) {
+            // Tint background fully red when critical
+            bgR = 1f; bgG = 0f; bgB = 0f;
         }
+        final int BG_OFFSET_X = 0;
+        final int BG_OFFSET_Y = 0;
+        final int ENERGY_BG_WIDTH = 127;
+        final int ENERGY_BG_HEIGHT = 24;
+        drawTexturedRect(gui, ENERGY_BG_TEXTURE,
+                baseX + BG_OFFSET_X, baseY + BG_OFFSET_Y,
+                ENERGY_BG_WIDTH, ENERGY_BG_HEIGHT,
+                1f, 1f, bgR, bgG, bgB, 1f);
 
-        drawTexturedRect(gui, BASE_TEXTURE, baseX, baseY, BASE_WIDTH, BASE_HEIGHT, 1f, 1f, R, G, B);
+        // Compute fill width in pixels relative the background
+        int fillPx = Math.min(Math.round(fraction * ENERGY_BG_WIDTH / 4f) * 4, ENERGY_BG_WIDTH);
 
-        int ENERGY_BAR_FILL_HEIGHT = 24;
-        int ENERGY_BAR_FILL_WIDTH  = 127;
-        int fillPx = Math.min(Math.round(fraction * ENERGY_BAR_FILL_WIDTH / 4f) * 4, ENERGY_BAR_FILL_WIDTH);
         if (fillPx > 0) {
+            // Compute fill tint: normal is cyanish; if critical, blink to red every 0.25s
+            float fillR = 0.4f, fillG = 0.8f, fillB = 1f;
+            if (critical) {
+                long blinkPhase = (now / CRITICAL_BLINK_INTERVAL_MS) % 2;
+                if (blinkPhase == 0) {
+                    // red
+                    fillR = 1f; fillG = 0f; fillB = 0f;
+                }
+                // else keep normal color
+            }
             double scale = Minecraft.getInstance().getWindow().getGuiScale();
             RenderSystem.enableScissor(
-                    (int) (baseX * scale),
-                    (int) ((gui.guiHeight() - (baseY + ENERGY_BAR_FILL_HEIGHT)) * scale),
+                    (int) ((baseX + BG_OFFSET_X) * scale),
+                    (int) ((gui.guiHeight() - (baseY + BG_OFFSET_Y + ENERGY_BG_HEIGHT)) * scale),
                     (int) (fillPx * scale),
-                    (int) (ENERGY_BAR_FILL_HEIGHT * scale)
+                    (int) (ENERGY_BG_HEIGHT * scale)
             );
-            drawTexturedRect(gui, ENERGY_FILL_TEXTURE, baseX, baseY, fillPx, ENERGY_BAR_FILL_HEIGHT, (float) fillPx / ENERGY_BAR_FILL_WIDTH, 1f, R, G, B);
+            drawTexturedRect(gui, ENERGY_FILL_TEXTURE,
+                    baseX + BG_OFFSET_X, baseY + BG_OFFSET_Y,
+                    fillPx, ENERGY_BG_HEIGHT,
+                    (float) fillPx / ENERGY_BG_WIDTH, 1f, fillR, fillG, fillB, 1f);
             RenderSystem.disableScissor();
         }
     }
@@ -197,10 +276,10 @@ public class NanosuitOverlay {
             drawTexturedRect(gui, ARMOR_MODE_FILL_TEXTURE, baseX + r.x, baseY + r.y, r.width, r.height, 1f, 1f, 1f, 1f, 1f);
         } else if (currentMode == SuitModes.CLOAK.get()) {
             Rect r = CLOAK_MODE_FILL_RECT;
-            drawTexturedRect(gui, CLOAK_MODE_TEXTURE, baseX + r.x, baseY + r.y, r.width, r.height, 1f, 1f, 1f, 1f, 1f);
+            drawTexturedRect(gui, CLOAK_MODE_FILL_TEXTURE, baseX + r.x, baseY + r.y, r.width, r.height, 1f, 1f, 1f, 1f, 1f);
         } else if (currentMode == SuitModes.VISOR.get()) {
             Rect r = VISOR_MODE_FILL_RECT;
-            drawTexturedRect(gui, VISOR_MODE_TEXTURE, baseX + r.x, baseY + r.y, r.width, r.height, 1f, 1f, 1f, 1f, 1f);
+            drawTexturedRect(gui, VISOR_MODE_FILL_TEXTURE, baseX + r.x, baseY + r.y, r.width, r.height, 1f, 1f, 1f, 1f, 1f);
         }
     }
 
