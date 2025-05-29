@@ -17,7 +17,7 @@ public class EntityDisposition {
         PASSIVE(0xAAFFAA),
         FRIENDLY_NPC(0x55FF55),
         BOSS(0xAA00FF),
-        PLAYER(0x00AAFF),
+        PLAYER(0xFFE500),
         PROJECTILE(0x999999),
         UNKNOWN(0xFFFFFF);
 
@@ -41,7 +41,7 @@ public class EntityDisposition {
         if (entity.getType().getCategory().isFriendly()) return Disposition.PASSIVE;
         if (entity instanceof NeutralMob) return Disposition.NEUTRAL;
         if (entity instanceof Projectile) return Disposition.PROJECTILE;
-
+        if (entity.getType().getCategory() == MobCategory.MONSTER) return Disposition.HOSTILE;
         return Disposition.UNKNOWN;
     }
 

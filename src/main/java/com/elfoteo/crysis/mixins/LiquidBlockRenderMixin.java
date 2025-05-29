@@ -71,8 +71,8 @@ public abstract class LiquidBlockRenderMixin {
         TextureAtlasSprite[] atextureatlassprite = FluidSpriteCache.getFluidSprites(level, pos, fluidState);
         float alpha = isLava? 1f: 0.7f;
         float red = isLava? 1f: 0f;
-        float green = isLava? 0.1f: 0f;
-        float blue = isLava? 0.2f: 0.42f;
+        float green = isLava? 0.5f: 0f;
+        float blue = isLava? 0.5f: 0.42f;
         BlockState blockstate = level.getBlockState(pos.relative(Direction.DOWN));
         BlockState blockstate1 = level.getBlockState(pos.relative(Direction.UP));
         BlockState blockstate2 = level.getBlockState(pos.relative(Direction.NORTH));

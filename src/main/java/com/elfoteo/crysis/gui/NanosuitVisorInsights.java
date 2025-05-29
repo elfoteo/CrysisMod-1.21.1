@@ -2,6 +2,7 @@ package com.elfoteo.crysis.gui;
 
 import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.gui.util.EntityDisposition;
+import com.elfoteo.crysis.keybindings.ModKeyBindings;
 import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.util.SuitModes;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -9,53 +10,181 @@ import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import org.joml.Matrix4f;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 @OnlyIn(Dist.CLIENT)
 @EventBusSubscriber(modid = CrysisMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public class NanosuitVisorInsights {
-    private static final ResourceLocation VISOR_OVERLAY = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/visor_overlay.png");
+    private static final ResourceLocation VISOR_OVERLAY =
+            ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/visor_overlay.png");
     private static final Rect HEALTHBAR = new Rect(6, 56, 98, 4);
     private static final Rect DECORATION = new Rect(0, 0, 110, 70);
 
-    private static Entity lastEntity = null;
-    private static int lastTick = -1;
+    /** Public map for tracking which entities are marked (UUID → Entity) */
+    public static final HashMap<UUID, Entity> MARKED_ENTITIES = new HashMap<>();
 
+    /** Cache for the nearest block‐hit distance per tick */
+    private static double lastBlockDistance = Double.POSITIVE_INFINITY;
+    private static int    lastBlockTick     = -1;
+
+    /** Cache for the “entity the player is looking at” (ignoring blocks) per tick */
+    private static Entity lastEntity = null;
+    private static int    lastEntityTick   = -1;
+
+    /**
+     * Returns the distance to the first solid block along the player's view‐ray,
+     * or the full render-distance range if no block is hit. Computed once per tick and cached.
+     */
+    private static double getFirstBlockDistance(Player player) {
+        int currentTick = (int) player.level().getGameTime();
+        if (currentTick != lastBlockTick) {
+            int renderDistanceChunks = Minecraft.getInstance().options.getEffectiveRenderDistance();
+            double fullRange = renderDistanceChunks * 16 * 0.95 - 1;
+            HitResult hit = player.pick(fullRange, 0.0F, false);
+
+            if (hit.getType() == HitResult.Type.MISS) {
+                // If no block is hit, use fullRange instead of infinity
+                lastBlockDistance = fullRange;
+            } else {
+                Vec3 eyePos = player.getEyePosition(1.0F);
+                lastBlockDistance = hit.getLocation().distanceTo(eyePos);
+            }
+
+            lastBlockTick = currentTick;
+        }
+        return lastBlockDistance;
+    }
+
+    /**
+     * Raycasts for the nearest entity along the player's view‐ray, but ignores any entity
+     * whose intersection point is at or beyond maxDist. Returns null if no entity is closer.
+     */
+    private static Entity raycastEntityUpToDistance(Player player, double maxDist) {
+        Vec3 eye   = player.getEyePosition(1.0F);
+        Vec3 look  = player.getLookAngle();
+        Vec3 end   = eye.add(look.scale(maxDist));
+
+        AABB scanBox = player.getBoundingBox().expandTowards(look.scale(maxDist)).inflate(1.0D);
+        List<Entity> candidates = player.level().getEntities(player, scanBox, e -> e != player && e.isPickable());
+
+        return candidates.stream()
+                .map(e -> {
+                    AABB box = e.getBoundingBox().inflate(0.3D);
+                    Optional<Vec3> hit = box.clip(eye, end);
+                    return hit.map(v -> new EntityHit(e, eye.distanceTo(v))).orElse(null);
+                })
+                .filter(Objects::nonNull)
+                .filter(eh -> eh.distance < maxDist)
+                .min(Comparator.comparingDouble(eh -> eh.distance))
+                .map(eh -> eh.entity)
+                .orElse(null);
+    }
+
+    /**
+     * Returns the entity the player is looking at (ignoring blocks), computed once per tick.
+     * Used for HUD rendering, not for marking. If you want “respecting blocks,” use
+     * raycastEntityUpToDistance(player, getFirstBlockDistance(player)).
+     */
     public static Entity getLookedAtEntity() {
-        if (Nanosuit.currentClientMode != SuitModes.VISOR.get()) return null;
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null) return null;
+
         int currentTick = (int) mc.level.getGameTime();
-        if (currentTick != lastTick) {
+        if (currentTick != lastEntityTick) {
             int renderDistanceChunks = mc.options.getEffectiveRenderDistance();
             double rayRange = renderDistanceChunks * 16 * 0.95 - 1;
             lastEntity = raycastEntityBypassBlocks(player, rayRange);
-            lastTick = currentTick;
+            lastEntityTick = currentTick;
         }
         return lastEntity;
     }
 
+    /**
+     * Original entity‐only raycast (ignores blocks entirely).
+     * Used by getLookedAtEntity().
+     */
+    private static Entity raycastEntityBypassBlocks(Player player, double range) {
+        Vec3 eye  = player.getEyePosition(1.0F);
+        Vec3 look = player.getLookAngle();
+        Vec3 end  = eye.add(look.scale(range));
+
+        AABB scanBox = player.getBoundingBox().expandTowards(look.scale(range)).inflate(1.0D);
+        List<Entity> candidates = player.level().getEntities(player, scanBox, e -> e != player && e.isPickable());
+
+        return candidates.stream()
+                .map(e -> {
+                    AABB box = e.getBoundingBox().inflate(0.3D);
+                    Optional<Vec3> hit = box.clip(eye, end);
+                    return hit.map(v -> new EntityHit(e, eye.distanceTo(v))).orElse(null);
+                })
+                .filter(Objects::nonNull)
+                .min(Comparator.comparingDouble(eh -> eh.distance))
+                .map(eh -> eh.entity)
+                .orElse(null);
+    }
+
+    /**
+     * Called every client tick. If the “MARK_ENTITY_KEY” is pressed, perform exactly one block‐ray
+     * (cached) and one entity‐ray (up to that block distance) to decide if the entity is visible.
+     * Toggles the marked state in MARKED_ENTITIES.
+     */
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+
+        if (ModKeyBindings.MARK_ENTITY_KEY != null && ModKeyBindings.MARK_ENTITY_KEY.consumeClick()) {
+            Player player = mc.player;
+
+            // 1) Compute (or retrieve from cache) the distance to the first block in view
+            double firstBlockDist = getFirstBlockDistance(player);
+
+            // 2) Raycast for the nearest entity that is strictly closer than that block
+            Entity target = raycastEntityUpToDistance(player, firstBlockDist);
+            if (target != null) {
+                UUID id = target.getUUID();
+                if (MARKED_ENTITIES.containsKey(id)) {
+                    MARKED_ENTITIES.remove(id);
+                } else {
+                    MARKED_ENTITIES.put(id, target);
+                }
+            }
+        }
+    }
+
+    /**
+     * Renders the HUD overlay when in VISOR mode, showing information about the entity the player is looking at.
+     * This method still uses getLookedAtEntity() (ignoring blocks) for informational purposes.
+     */
     @SubscribeEvent
     public static void onRenderHUD(RenderGuiLayerEvent.Pre event) {
-        if (!VanillaGuiLayers.PLAYER_HEALTH.equals(event.getName())) return;
+        if (!VanillaGuiLayers.SCOREBOARD_SIDEBAR.equals(event.getName())) return;
+        if (Nanosuit.currentClientMode != SuitModes.VISOR.get()) return;
 
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
@@ -81,13 +210,13 @@ public class NanosuitVisorInsights {
         int dispositionColor = EntityDisposition.getColor(target);
         double distance = player.distanceTo(target);
 
-        // If it's a living entity, grab health and armor. Otherwise, display "N/A".
-        float hp = target instanceof LivingEntity le ? le.getHealth() : -1f;
+        float hp    = target instanceof LivingEntity le ? le.getHealth() : -1f;
         float maxHp = target instanceof LivingEntity le ? le.getMaxHealth() : -1f;
         float armor = target instanceof LivingEntity le ? le.getArmorValue() : -1f;
 
+        // Draw the visor overlay background
         drawTexturedRect(gui, VISOR_OVERLAY, baseX, baseY, DECORATION.width, DECORATION.height,
-                1f, 1f, 1f, 1f, 1f);
+                1f, 1f, 1f, 1f, 1f, 1f);
 
         gui.pose().pushPose();
         gui.pose().translate(textX, textY, 0);
@@ -117,40 +246,21 @@ public class NanosuitVisorInsights {
         int fill = (int) (w * fraction);
         gui.fill(x, y, x + w, y + h, 0xFF202020);
         if (fill > 0) {
-            gui.fill(x, y, x + fill, y + h, 0xFF00FFFF); // ✅ Cyan health bar fill
+            gui.fill(x, y, x + fill, y + h, 0xFF00FFFF);
         }
     }
 
-    private static Entity raycastEntityBypassBlocks(Player player, double range) {
-        Vec3 eye = player.getEyePosition(1.0F);
-        Vec3 look = player.getLookAngle();
-        Vec3 reachVec = eye.add(look.scale(range));
-
-        AABB aabb = player.getBoundingBox().expandTowards(look.scale(range)).inflate(1.0D);
-        List<Entity> candidates = player.level().getEntities(player, aabb, e -> e != player && e.isPickable());
-
-        return candidates.stream()
-                .map(e -> {
-                    AABB box = e.getBoundingBox().inflate(0.3);
-                    Optional<Vec3> hit = box.clip(eye, reachVec);
-                    return hit.map(vec -> new EntityHit(e, eye.distanceTo(vec))).orElse(null);
-                })
-                .filter(Objects::nonNull)
-                .min(Comparator.comparingDouble(eh -> eh.distance))
-                .map(eh -> eh.entity)
-                .orElse(null);
-    }
-
     private static void drawTexturedRect(GuiGraphics gui, ResourceLocation tex,
-                                         int x, int y, int w, int h, float uS, float vS,
-                                         float r, float g, float b) {
+                                         int x, int y, int w, int h,
+                                         float uS, float vS,
+                                         float r, float g, float b, float a) {
         Minecraft mc = Minecraft.getInstance();
         mc.getTextureManager().bindForSetup(tex);
         RenderSystem.setShaderTexture(0, tex);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
-        RenderSystem.setShaderColor(r, g, b, 1f);
+        RenderSystem.setShaderColor(r, g, b, a);
         Matrix4f mat = gui.pose().last().pose();
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
         bb.addVertex(mat, x,     y,     0).setUv(0, 0);
@@ -162,6 +272,7 @@ public class NanosuitVisorInsights {
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
     }
 
+    /** Simple record to hold an entity + intersection distance */
     private record EntityHit(Entity entity, double distance) {}
 
     private static final class Rect {

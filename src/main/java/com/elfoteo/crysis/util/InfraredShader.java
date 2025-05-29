@@ -142,6 +142,8 @@ public class InfraredShader {
     private static Function<ResourceLocation, RenderType> INFRARED_ENTITY_TRANSLUCENT_CULL_FOR_ITEMS;
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_CUTOUT_NO_CULL;
 
+    public static BiFunction<ResourceLocation, Boolean, RenderType> TARGET_INDICATOR;
+
     @OnlyIn(Dist.CLIENT)
     @EventBusSubscriber(modid = CrysisMod.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
     public static class Blocks {
@@ -189,6 +191,19 @@ public class InfraredShader {
     @SubscribeEvent
     public static void onRegisterShaders(RegisterShadersEvent event) {
         try {
+            TARGET_INDICATOR = Util.memoize((p_286166_, p_286167_) -> {
+                CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
+                        .setShaderState(RenderType.RENDERTYPE_ENTITY_CUTOUT_NO_CULL_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(p_286166_, false, false))
+                        .setTransparencyState(RenderType.NO_TRANSPARENCY)
+                        .setCullState(RenderType.NO_CULL)
+                        .setDepthTestState(RenderType.NO_DEPTH_TEST)
+                        .setLightmapState(RenderType.LIGHTMAP)
+                        .setOverlayState(RenderType.OVERLAY)
+                        .createCompositeState(p_286167_);
+                return RenderType.create("entity_cutout_no_cull", DefaultVertexFormat.NEW_ENTITY, Mode.QUADS, 1536, true, false, rendertype$compositestate);
+            });
+
             INFRARED_SOLID_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_entity"),
                     DefaultVertexFormat.POSITION_COLOR);
@@ -356,6 +371,10 @@ public class InfraredShader {
                 .setLayeringState(RenderType.VIEW_OFFSET_Z_LAYERING)
                 .setDepthTestState(equalDepthTest ? RenderType.EQUAL_DEPTH_TEST : RenderType.LEQUAL_DEPTH_TEST).createCompositeState(true);
         return new CompositeRenderType(name, DefaultVertexFormat.NEW_ENTITY, Mode.QUADS, 1536, true, false, rendertype$compositestate);
+    }
+
+    public static RenderType targetIndicator(ResourceLocation location) {
+        return TARGET_INDICATOR.apply(location, true);
     }
 
     @OnlyIn(Dist.CLIENT)

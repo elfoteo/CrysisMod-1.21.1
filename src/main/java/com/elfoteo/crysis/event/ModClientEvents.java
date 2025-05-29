@@ -1,101 +1,34 @@
 package com.elfoteo.crysis.event;
 
+import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.gui.NanosuitSkillTree;
+import com.elfoteo.crysis.gui.NanosuitVisorInsights;
+import com.elfoteo.crysis.gui.util.EntityDisposition;
 import com.elfoteo.crysis.keybindings.ModKeyBindings;
+import com.elfoteo.crysis.util.InfraredShader;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.core.BlockPos;
+import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.client.Camera;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.api.distmarker.Dist;
+import net.neoforged.neoforge.client.event.RenderLivingEvent;
+import org.joml.Matrix4f;
 
-import java.util.concurrent.ConcurrentHashMap;
-
-@EventBusSubscriber(modid = "crysis", bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(modid = CrysisMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public class ModClientEvents {
-    public static final boolean FAST_COMPUTE = true;
-    private static final int ACCUM_TICKS = 20; // Ticks to reach target heat
-    private static final int FADE_TICKS = 20; // Ticks to fade out
-    private static final float THRESHOLD = 0.03f; // Threshold for heat to be removed/added to the ideal heat map
 
-    // Current heat levels
-    private static final ConcurrentHashMap<BlockPos, Float> HEAT_CACHE = new ConcurrentHashMap<>();
-    // Target heat levels
-    private static final ConcurrentHashMap<BlockPos, Float> IDEAL_HEAT_MAP = new ConcurrentHashMap<>();
-
-    /**
-     * Called during rendering to get current heat and set target heat.
-     */
-    public static float getHeat(BlockPos pos, float targetHeat) {
-        if (FAST_COMPUTE)
-            return targetHeat;
-        float currentHeat = HEAT_CACHE.getOrDefault(pos, 0f);
-        if (Math.abs(currentHeat - targetHeat) > THRESHOLD) {
-            IDEAL_HEAT_MAP.put(pos, targetHeat); // Mark block heat to update over time since it is not already the
-                                                 // target
-        }
-        return currentHeat;
-    }
-
-    @SubscribeEvent
-    public static void updateHeatTick(ClientTickEvent.Post event) {
-        if (FAST_COMPUTE)
-            return;
-        Minecraft mc = Minecraft.getInstance();
-        ClientLevel level = mc.level;
-        LevelRenderer renderer = mc.levelRenderer;
-        if (level == null)
-            return;
-
-        // Collect unique section coordinates to mark as dirty
-        var dirtySections = new java.util.HashSet<Long>();
-
-        IDEAL_HEAT_MAP.forEach((pos, targetHeat) -> {
-            float currentHeat = HEAT_CACHE.getOrDefault(pos, 0f);
-            float nextHeat;
-
-            if (currentHeat < targetHeat) {
-                float gain = (targetHeat - currentHeat) / ACCUM_TICKS;
-                nextHeat = Math.min(targetHeat, currentHeat + gain);
-            } else if (currentHeat > targetHeat) {
-                float loss = (currentHeat - targetHeat) / FADE_TICKS;
-                nextHeat = Math.max(targetHeat, currentHeat - loss);
-            } else {
-                nextHeat = currentHeat;
-            }
-
-            if (nextHeat > 0f) {
-                HEAT_CACHE.put(pos, nextHeat);
-            } else {
-                HEAT_CACHE.remove(pos);
-            }
-
-            // Track dirty section based on block position
-            int sectionX = pos.getX() >> 4;
-            int sectionY = pos.getY() >> 4;
-            int sectionZ = pos.getZ() >> 4;
-            long sectionKey = (((long) sectionX & 0x3FFFFL) << 40) |
-                    (((long) sectionY & 0xFFL) << 32) |
-                    ((long) sectionZ & 0xFFFFFFFFL);
-            dirtySections.add(sectionKey);
-
-            // Remove from IDEAL_HEAT_MAP if target reached
-            if (Math.abs(nextHeat - targetHeat) < THRESHOLD) {
-                IDEAL_HEAT_MAP.remove(pos);
-            }
-        });
-
-        // Mark sections dirty only once per section
-        for (long key : dirtySections) {
-            int sectionX = (int) ((key >> 40) & 0x3FFFFL);
-            int sectionY = (int) ((key >> 32) & 0xFFL);
-            int sectionZ = (int) (key & 0xFFFFFFFFL);
-            renderer.setSectionDirty(sectionX, sectionY, sectionZ);
-        }
-    }
+    private static final ResourceLocation HOSTILE_ICON = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/markers/hostile.png");
+    private static final ResourceLocation NEUTRAL_ICON = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/markers/neutral.png");
+    private static final ResourceLocation PACIFIC_ICON = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/gui/markers/pacific.png");
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -105,5 +38,86 @@ public class ModClientEvents {
                 mc.setScreen(new NanosuitSkillTree());
             }
         }
+    }
+
+    @SubscribeEvent
+    public static void onRenderLiving(RenderLivingEvent.Post<?, ?> event) {
+        LivingEntity entity = event.getEntity();
+        if (!NanosuitVisorInsights.MARKED_ENTITIES.containsKey(entity.getUUID())) return;
+
+        PoseStack poseStack = event.getPoseStack();
+        double yOffset = entity.getBbHeight() + Math.min(entity.getBbHeight()*0.2, 0.5f);
+
+        // Draw floating icon with constant on-screen size (no perspective scaling)
+        poseStack.pushPose();
+        poseStack.translate(0, yOffset, 0);
+        poseStack.mulPose(Minecraft.getInstance().getEntityRenderDispatcher().cameraOrientation());
+
+        // Compute distance from camera to entity to counteract perspective shrink
+        Minecraft mc = Minecraft.getInstance();
+        Camera camera = mc.gameRenderer.getMainCamera();
+        Vec3 camPos = camera.getPosition();
+        double dx = entity.getX() - camPos.x;
+        double dy = entity.getY() - camPos.y;
+        double dz = entity.getZ() - camPos.z;
+        float distance = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        // Choose a base scale factor (adjust 0.025f as needed for desired on-screen size)
+        float baseScale = 0.03f;
+        float dynamicScale = baseScale * Math.max(distance, 10);
+        poseStack.scale(dynamicScale, dynamicScale, dynamicScale);
+
+        ResourceLocation icon;
+        EntityDisposition.Disposition disposition = EntityDisposition.get(entity);
+
+        switch (disposition) {
+            case PROJECTILE, BOSS, HOSTILE, UNKNOWN -> icon = HOSTILE_ICON;
+            case PLAYER -> icon = NEUTRAL_ICON;
+            default -> icon = PACIFIC_ICON;
+        }
+
+        drawTargetIndicator(
+                poseStack,
+                event.getMultiBufferSource(),
+                icon,
+                -0.5f, -0.5f, 1.0f, 1.0f, // x, y, width, height in world space
+                0.0f, 1.0f, // uS, vS (texture coordinates)
+                1.0f, 1.0f, 1.0f, 1.0f // r, g, b, a
+        );
+
+        poseStack.popPose();
+    }
+
+    private static void drawTargetIndicator(
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            ResourceLocation tex,
+            float x, float y, float w, float h,
+            float uS, float vS,
+            float r, float g, float b, float a
+    ) {
+        Minecraft mc = Minecraft.getInstance();
+        mc.getTextureManager().bindForSetup(tex);
+        RenderSystem.setShaderTexture(0, tex);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.setShaderColor(r, g, b, a);
+
+        Matrix4f mat = poseStack.last().pose();
+        VertexConsumer buffer = bufferSource.getBuffer(InfraredShader.targetIndicator(tex));
+        float u0 = 0.0f;
+        float v0 = 1.0f;
+        float u1 = 1.0f;
+        float v1 = 0.0f;
+
+        // Define the quad vertices (counter-clockwise order)
+        buffer.addVertex(mat, x,     y,     0).setColor(r, g, b, a).setUv(u0, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT).setNormal(0, 0, -1);
+        buffer.addVertex(mat, x,     y + h, 0).setColor(r, g, b, a).setUv(u0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT).setNormal(0, 0, -1);
+        buffer.addVertex(mat, x + w, y + h, 0).setColor(r, g, b, a).setUv(u1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT).setNormal(0, 0, -1);
+        buffer.addVertex(mat, x + w, y,     0).setColor(r, g, b, a).setUv(u1, v0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT).setNormal(0, 0, -1);
+
+        RenderSystem.disableBlend();
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }

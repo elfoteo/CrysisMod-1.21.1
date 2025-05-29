@@ -133,120 +133,6 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         ci.cancel();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-// Single "world‐space" trail texture at 16× resolution per block:
-    @Unique private int trailTextureId     = -1;
-    @Unique private int trailFramebufferId = -1;
-    @Unique private int lastWindowWidth    = -1;
-    @Unique private int lastWindowHeight   = -1;
-
-    // Cover a 1024×1024‐block region at 16×16 sub‐pixels each → 16384×16384 texture
-    @Unique private final int trailTexWidth  = 1024 * 16; // 16384
-    @Unique private final int trailTexHeight = 1024 * 16; // 16384
-
-    // Which "sub‐block" X/Z corresponds to texture coordinate (0,0)? (set per frame)
-    @Unique private int worldOffsetX = 0;
-    @Unique private int worldOffsetZ = 0;
-
-    /**
-     * Allocate (or re‐allocate) the 16384×16384 R8 trail texture.
-     * Clears its contents to zero so no garbage appears the first frame.
-     *
-     * SAVES & RESTORES:
-     *   • GL_FRAMEBUFFER_BINDING
-     *   • GL_TEXTURE_BINDING_2D
-     *   • GL_VIEWPORT
-     */
-    @Unique
-    private void allocateOrResizeTrailTexture() {
-        int winW = Minecraft.getInstance().getWindow().getWidth();
-        int winH = Minecraft.getInstance().getWindow().getHeight();
-
-        // If already allocated and window size hasn't changed, do nothing.
-        if (trailTextureId != -1 && lastWindowWidth == winW && lastWindowHeight == winH) {
-            return;
-        }
-
-        // Delete old FBO + texture if they exist
-        if (trailFramebufferId != -1) {
-            GL30.glDeleteFramebuffers(trailFramebufferId);
-            trailFramebufferId = -1;
-        }
-        if (trailTextureId != -1) {
-            GL11.glDeleteTextures(trailTextureId);
-            trailTextureId = -1;
-        }
-
-        lastWindowWidth  = winW;
-        lastWindowHeight = winH;
-
-        // ——————————————— SAVE CURRENT GL STATE ———————————————
-        // 1) Save currently bound FBO
-        int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-        // 2) Save currently bound TEXTURE_2D
-        int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        // 3) Save current viewport (x, y, width, height)
-        int[] prevViewport = new int[4];
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-
-        // ——————————————— ALLOCATE & CLEAR NEW TRAIL TEXTURE ———————————————
-        // 1) Create a new 16384×16384 r16 texture (single channel, 8‐bit)
-        trailTextureId = GL11.glGenTextures();
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, trailTextureId);
-        GL11.glTexImage2D(
-                GL11.GL_TEXTURE_2D,
-                0,
-                GL30.GL_R16,          // Single channel, 8‐bit format
-                trailTexWidth,
-                trailTexHeight,
-                0,
-                GL11.GL_RED,         // Single red channel
-                GL11.GL_UNSIGNED_BYTE,
-                (ByteBuffer) null
-        );
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-
-        // 2) Attach to a new FBO so we can clear it
-        trailFramebufferId = GL30.glGenFramebuffers();
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, trailFramebufferId);
-        GL30.glFramebufferTexture2D(
-                GL30.GL_FRAMEBUFFER,
-                GL30.GL_COLOR_ATTACHMENT0,
-                GL11.GL_TEXTURE_2D,
-                trailTextureId,
-                0
-        );
-        if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            throw new IllegalStateException("World‐trail framebuffer is incomplete!");
-        }
-
-        // 3) Clear it to zero (no heat) so no garbage remains
-        GL11.glViewport(0, 0, trailTexWidth, trailTexHeight);
-        GL11.glClearColor(0f, 0f, 0f, 0f);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
-
-        // ——————————————— RESTORE PREVIOUS GL STATE ———————————————
-        // 4) Re‐bind the previous framebuffer
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
-        // 5) Re‐bind the previous texture
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex);
-        // 6) Restore the previous viewport
-        GL11.glViewport(
-                prevViewport[0],
-                prevViewport[1],
-                prevViewport[2],
-                prevViewport[3]
-        );
-
-        // 7) Initialize worldOffsetX/Z so camera is centered in this 16384×16384 region
-        Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
-        int camSubX = (int) Math.floor(camPos.x * 16.0); // "sub‐block" X
-        int camSubZ = (int) Math.floor(camPos.z * 16.0); // "sub‐block" Z
-        worldOffsetX = camSubX - (trailTexWidth  / 2);  // 8192 = 16384/2
-        worldOffsetZ = camSubZ - (trailTexHeight / 2);  // 8192 = 16384/2
-    }
-
     // Add these fields to your class
     @Unique private final Map<RenderType, Long> lastCallTimes = new HashMap<>();
     @Unique private final Map<RenderType, Float> cachedDeltaTimes = new HashMap<>();
@@ -279,6 +165,292 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
 
         return deltaSeconds;
     }
+    @Unique private int trailTextureId = -1;
+    @Unique private int trailFramebufferId = -1;
+    @Unique private int lastWindowWidth = -1;
+    @Unique private int lastWindowHeight = -1;
+
+    // Define 3D texture dimensions (in blocks)
+    @Unique private final int trailTexSizeX = 512; // x dimension
+    @Unique private final int trailTexSizeY = 380;  // y dimension (height)
+    @Unique private final int trailTexSizeZ = 512; // z dimension
+
+    @Unique private int worldOffsetX = 0; // In blocks
+    @Unique private int worldOffsetZ = 0; // In blocks
+    @Unique private int lastPlayerBlockX = Integer.MAX_VALUE; // Track player position
+    @Unique private int lastPlayerBlockZ = Integer.MAX_VALUE;
+
+    // Temporary texture for data shifting
+    @Unique private int tempTextureId = -1;
+    @Unique private int shiftThreshold = 32; // Shift when player moves this many blocks
+
+    // Compute shader for shifting texture data
+    @Unique private int shiftComputeProgram = -1;
+
+    private void initShiftComputeShader() {
+        if (shiftComputeProgram != -1) return;
+
+        String computeShaderSource = """
+        #version 430
+        layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+        
+        layout(binding = 0, r16f) uniform image3D sourceTexture;
+        layout(binding = 1, r16f) uniform image3D destTexture;
+        
+        uniform ivec3 textureSize;
+        uniform ivec3 offset;
+        
+        void main() {
+            ivec3 destCoord = ivec3(gl_GlobalInvocationID);
+            
+            // Check bounds
+            if (destCoord.x >= textureSize.x || 
+                destCoord.y >= textureSize.y || 
+                destCoord.z >= textureSize.z) {
+                return;
+            }
+            
+            // Calculate source coordinate with offset
+            ivec3 sourceCoord = destCoord - offset;
+            
+            float value = 0.0;
+            
+            // Check if source coordinate is within bounds
+            if (sourceCoord.x >= 0 && sourceCoord.x < textureSize.x &&
+                sourceCoord.y >= 0 && sourceCoord.y < textureSize.y &&
+                sourceCoord.z >= 0 && sourceCoord.z < textureSize.z) {
+                value = imageLoad(sourceTexture, sourceCoord).r;
+            }
+            
+            imageStore(destTexture, destCoord, vec4(value, 0.0, 0.0, 0.0));
+        }
+        """;
+
+        // Compile compute shader
+        int computeShader = GL20.glCreateShader(GL43.GL_COMPUTE_SHADER);
+        GL20.glShaderSource(computeShader, computeShaderSource);
+        GL20.glCompileShader(computeShader);
+
+        if (GL20.glGetShaderi(computeShader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
+            String log = GL20.glGetShaderInfoLog(computeShader);
+            GL20.glDeleteShader(computeShader);
+            throw new RuntimeException("Failed to compile shift compute shader: " + log);
+        }
+
+        // Create program
+        shiftComputeProgram = GL20.glCreateProgram();
+        GL20.glAttachShader(shiftComputeProgram, computeShader);
+        GL20.glLinkProgram(shiftComputeProgram);
+
+        if (GL20.glGetProgrami(shiftComputeProgram, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
+            String log = GL20.glGetProgramInfoLog(shiftComputeProgram);
+            GL20.glDeleteProgram(shiftComputeProgram);
+            GL20.glDeleteShader(computeShader);
+            throw new RuntimeException("Failed to link shift compute shader: " + log);
+        }
+
+        GL20.glDeleteShader(computeShader);
+    }
+
+    private void allocateOrResizeTrailTexture() {
+        int winW = Minecraft.getInstance().getWindow().getWidth();
+        int winH = Minecraft.getInstance().getWindow().getHeight();
+
+        if (trailTextureId != -1 && lastWindowWidth == winW && lastWindowHeight == winH) {
+            return;
+        }
+
+        // Clean up existing resources
+        if (trailFramebufferId != -1) {
+            GL30.glDeleteFramebuffers(trailFramebufferId);
+            trailFramebufferId = -1;
+        }
+        if (trailTextureId != -1) {
+            GL11.glDeleteTextures(trailTextureId);
+            trailTextureId = -1;
+        }
+        if (tempTextureId != -1) {
+            GL11.glDeleteTextures(tempTextureId);
+            tempTextureId = -1;
+        }
+
+        lastWindowWidth = winW;
+        lastWindowHeight = winH;
+
+        // Save current GL state
+        int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        int prevTex3D = GL11.glGetInteger(GL12.GL_TEXTURE_BINDING_3D);
+        int[] prevViewport = new int[4];
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+
+        // Allocate main 3D texture
+        trailTextureId = GL11.glGenTextures();
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, trailTextureId);
+        GL12.glTexImage3D(GL12.GL_TEXTURE_3D, 0, GL30.GL_R16F, trailTexSizeX, trailTexSizeY, trailTexSizeZ, 0, GL11.GL_RED, GL11.GL_FLOAT, (ByteBuffer) null);
+        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+//        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_R, GL12.GL_CLAMP_TO_EDGE);
+
+        // Allocate temporary texture for shifting
+        tempTextureId = GL11.glGenTextures();
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, tempTextureId);
+        GL12.glTexImage3D(GL12.GL_TEXTURE_3D, 0, GL30.GL_R16F, trailTexSizeX, trailTexSizeY, trailTexSizeZ, 0, GL11.GL_RED, GL11.GL_FLOAT, (ByteBuffer) null);
+        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+//        GL11.glTexParameteri(GL12.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_R, GL12.GL_CLAMP_TO_EDGE);
+
+        // Clear both textures using a framebuffer
+        trailFramebufferId = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, trailFramebufferId);
+
+        // Clear main texture
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, trailTextureId);
+        for (int layer = 0; layer < trailTexSizeY; layer++) {
+            GL30.glFramebufferTextureLayer(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, trailTextureId, 0, layer);
+            if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
+                throw new IllegalStateException("Framebuffer incomplete for layer " + layer);
+            }
+            GL11.glViewport(0, 0, trailTexSizeX, trailTexSizeZ);
+            GL11.glClearColor(0f, 0f, 0f, 0f);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        }
+
+        // Clear temp texture
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, tempTextureId);
+        for (int layer = 0; layer < trailTexSizeY; layer++) {
+            GL30.glFramebufferTextureLayer(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, tempTextureId, 0, layer);
+            GL11.glViewport(0, 0, trailTexSizeX, trailTexSizeZ);
+            GL11.glClearColor(0f, 0f, 0f, 0f);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        }
+
+        // Restore GL state
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, prevTex3D);
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+
+        // Initialize compute shader
+        initShiftComputeShader();
+
+        // Reset player tracking
+        lastPlayerBlockX = Integer.MAX_VALUE;
+        lastPlayerBlockZ = Integer.MAX_VALUE;
+    }
+
+    private void updateTextureCenter() {
+        Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        int currentPlayerBlockX = (int) Math.floor(camPos.x);
+        int currentPlayerBlockZ = (int) Math.floor(camPos.z);
+
+        // Check if this is the first time
+        if (lastPlayerBlockX == Integer.MAX_VALUE || lastPlayerBlockZ == Integer.MAX_VALUE) {
+            // First time - just set the offsets
+            worldOffsetX = currentPlayerBlockX - (trailTexSizeX / 2);
+            worldOffsetZ = currentPlayerBlockZ - (trailTexSizeZ / 2);
+            lastPlayerBlockX = currentPlayerBlockX;
+            lastPlayerBlockZ = currentPlayerBlockZ;
+            return;
+        }
+
+        int deltaX = currentPlayerBlockX - lastPlayerBlockX;
+        int deltaZ = currentPlayerBlockZ - lastPlayerBlockZ;
+
+        // Only shift if player moved beyond threshold
+        if (Math.abs(deltaX) >= shiftThreshold || Math.abs(deltaZ) >= shiftThreshold) {
+            // Calculate new world offsets FIRST
+            int newWorldOffsetX = currentPlayerBlockX - (trailTexSizeX / 2);
+            int newWorldOffsetZ = currentPlayerBlockZ - (trailTexSizeZ / 2);
+
+            // Calculate the shift needed in texture space
+            // This is the difference between old and new world offsets
+            int textureShiftX = newWorldOffsetX - worldOffsetX;
+            int textureShiftZ = newWorldOffsetZ - worldOffsetZ;
+
+            // Perform the shift with correct direction
+            shiftTextureData(textureShiftX, textureShiftZ);
+
+            // Update offsets and player position AFTER shifting
+            worldOffsetX = newWorldOffsetX;
+            worldOffsetZ = newWorldOffsetZ;
+            lastPlayerBlockX = currentPlayerBlockX;
+            lastPlayerBlockZ = currentPlayerBlockZ;
+        }
+    }
+
+    private void shiftTextureData(int shiftX, int shiftZ) {
+        if (trailTextureId == -1 || tempTextureId == -1 || shiftComputeProgram == -1) return;
+
+        // Save current GL state
+        int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+
+        // Use compute shader to shift data
+        GL20.glUseProgram(shiftComputeProgram);
+
+        // Bind textures to image units
+        GL42.glBindImageTexture(0, trailTextureId, 0, true, 0, GL15.GL_READ_ONLY, GL30.GL_R16F);
+        GL42.glBindImageTexture(1, tempTextureId, 0, true, 0, GL15.GL_WRITE_ONLY, GL30.GL_R16F);
+
+        // Set uniforms
+        int textureSizeLoc = GL20.glGetUniformLocation(shiftComputeProgram, "textureSize");
+        int offsetLoc = GL20.glGetUniformLocation(shiftComputeProgram, "offset");
+
+        if (textureSizeLoc != -1) {
+            GL20.glUniform3i(textureSizeLoc, trailTexSizeX, trailTexSizeY, trailTexSizeZ);
+        }
+        if (offsetLoc != -1) {
+            // The offset represents how much to shift the data
+            // Positive offset means data moves in positive direction
+            GL20.glUniform3i(offsetLoc, -shiftX, 0, -shiftZ); // Note the negation
+        }
+
+        // Dispatch compute shader
+        int workGroupsX = (trailTexSizeX + 7) / 8;
+        int workGroupsY = (trailTexSizeY + 7) / 8;
+        int workGroupsZ = (trailTexSizeZ + 0) / 1;
+
+        GL43.glDispatchCompute(workGroupsX, workGroupsY, workGroupsZ);
+
+        // Wait for completion
+        GL42.glMemoryBarrier(GL42.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+        // Swap textures (temp becomes main)
+        int temp = trailTextureId;
+        trailTextureId = tempTextureId;
+        tempTextureId = temp;
+
+        // Clear the old texture (now temp) for next time
+        clearTexture(tempTextureId);
+
+        // Restore GL state
+        GL20.glUseProgram(prevProgram);
+    }
+
+    // Helper method to clear texture more efficiently
+    private void clearTexture(int textureId) {
+        int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        int[] prevViewport = new int[4];
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, trailFramebufferId);
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, textureId);
+
+        for (int layer = 0; layer < trailTexSizeY; layer++) {
+            GL30.glFramebufferTextureLayer(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, textureId, 0, layer);
+            if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) == GL30.GL_FRAMEBUFFER_COMPLETE) {
+                GL11.glViewport(0, 0, trailTexSizeX, trailTexSizeZ);
+                GL11.glClearColor(0f, 0f, 0f, 0f);
+                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+            }
+        }
+
+        // Restore state
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+    }
 
     // ─────────────────────────────────────────────────────────────────────────────
     @Inject(method = "renderSectionLayer", at = @At("HEAD"), cancellable = true)
@@ -293,12 +465,15 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         RenderSystem.assertOnRenderThread();
         renderType.setupRenderState();
 
-        // 1) Ensure our 16384×16384 trail texture exists (allocate on first use)
+        // 1) Ensure our trail texture exists and is properly centered
         if (trailTextureId == -1) {
             allocateOrResizeTrailTexture();
         }
 
-        // 2) Vanilla translucent‐sorting logic (unchanged)
+        // 2) Update texture center based on player position
+        updateTextureCenter();
+
+        // 3) Vanilla translucent‐sorting logic (unchanged)
         if (renderType == RenderType.translucent()) {
             this.minecraft.getProfiler().push("translucent_sort");
             double d0 = x - this.xTransparentOld;
@@ -335,12 +510,11 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         ObjectListIterator<SectionRenderDispatcher.RenderSection> it =
                 this.visibleSections.listIterator(solidPass ? 0 : this.visibleSections.size());
 
-        // 3) Select the appropriate infrared shader
+        // 4) Select the appropriate infrared shader
         ShaderInstance shaderInstance;
-        // (we’ve hard‐coded SOLID_SHADER for now)
         shaderInstance = InfraredShader.Blocks.SOLID_SHADER;
 
-        // 4) Gather up to 16 nearby "hot" entities
+        // 5) Gather up to 16 nearby "hot" entities
         Camera camera = this.minecraft.gameRenderer.getMainCamera();
         Vec3 camPos = camera.getPosition();
         double searchRadius = 20.0;
@@ -375,7 +549,7 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             count++;
         }
 
-        // 5) Apply the shader and upload uniforms
+        // 6) Apply the shader and upload uniforms
         shaderInstance.setDefaultUniforms(
                 VertexFormat.Mode.QUADS,
                 frustrumMatrix,
@@ -406,7 +580,7 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             cwp.upload();
         }
 
-        // 6) Upload "sub‐block" world offsets (already ×16 in Java)
+        // 7) Upload world offsets (always current and centered)
         var uOffX = shaderInstance.getUniform("u_worldOffsetX");
         if (uOffX != null) {
             uOffX.set(worldOffsetX);
@@ -424,38 +598,26 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             dt.upload();
         }
 
-        // ——————————————— SAVE CURRENT ACTIVE TEXTURE & BINDINGS ———————————————
+        // 8) Save current active texture & bindings
         int prevActiveTex = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-        // Save what is bound at unit 0
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        int prevTex0 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        // Save what is bound at unit 2
+        int prevTex3D_0 = GL11.glGetInteger(GL12.GL_TEXTURE_BINDING_3D);
         GL13.glActiveTexture(GL13.GL_TEXTURE2);
-        int prevTex2 = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        int prevTex3D_2 = GL11.glGetInteger(GL12.GL_TEXTURE_BINDING_3D);
 
-        // ——————————————— BIND OUR TRAIL TEXTURE FOR READ/WRITE ———————————————
-        // Bind as image unit 1 (write) & sampler unit 2 (read)
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, trailTextureId);
-        GL42.glBindImageTexture(
-                /* unit     */ 1,
-                /* texture  */ trailTextureId,
-                /* level    */ 0,
-                /* layered  */ false,
-                /* layer    */ 0,
-                /* access   */ GL15.GL_READ_WRITE,
-                /* format   */ GL30.GL_R16    // Changed to R16 format
-        );
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, trailTextureId);
+        GL42.glBindImageTexture(1, trailTextureId, 0, false, 0, GL15.GL_READ_WRITE, GL30.GL_R16F);
 
         GL13.glActiveTexture(GL13.GL_TEXTURE2);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, trailTextureId);
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, trailTextureId);
         var trailSampler = shaderInstance.getUniform("TrailSampler");
         if (trailSampler != null) {
             trailSampler.set(2);
             trailSampler.upload();
         }
 
-        // 8) Draw each chunk section exactly as vanilla, but with our custom shader
+        // 9) Draw each chunk section
         var chunkOffset = shaderInstance.getUniform("ChunkOffset");
         while (solidPass ? it.hasNext() : it.hasPrevious()) {
             SectionRenderDispatcher.RenderSection section =
@@ -481,30 +643,15 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             chunkOffset.upload();
         }
 
-        // 9) CLEAN UP: restore all altered GL state
-        //  9a) Un‐bind our image unit (unit 1 → no texture)
-        GL42.glBindImageTexture(
-                /* unit     */ 1,
-                /* texture  */ 0,
-                /* level    */ 0,
-                /* layered  */ false,
-                /* layer    */ 0,
-                /* access   */ GL15.GL_READ_WRITE,
-                /* format   */ GL30.GL_R16
-        );
-
-        //  9b) Restore texture‐unit 2’s binding
+        // Restore GL state
+        GL42.glBindImageTexture(1, 0, 0, false, 0, GL15.GL_READ_WRITE, GL30.GL_R16F);
         GL13.glActiveTexture(GL13.GL_TEXTURE2);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex2);
-
-        //  9c) Restore texture‐unit 0’s binding
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, prevTex3D_2);
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex0);
-
-        //  9d) Restore whichever active texture was in use
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, prevTex3D_0);
         GL13.glActiveTexture(prevActiveTex);
 
-        // 10) Clean up exactly as vanilla
+        // 10) Clean up
         shaderInstance.clear();
         VertexBuffer.unbind();
         this.minecraft.getProfiler().pop();

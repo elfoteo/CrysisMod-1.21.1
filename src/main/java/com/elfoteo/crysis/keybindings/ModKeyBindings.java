@@ -12,6 +12,7 @@ public class ModKeyBindings {
     public static KeyMapping CLOAK_KEY;
     public static KeyMapping VISOR_KEY;
     public static KeyMapping SKILLTREE_KEY;
+    public static KeyMapping MARK_ENTITY_KEY;
 
     public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
         CLOAK_KEY = new KeyMapping(
@@ -31,8 +32,15 @@ public class ModKeyBindings {
         SKILLTREE_KEY = new KeyMapping(
                 "key.crysis.skilltree",
                 InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_H, // or any key you want
+                GLFW.GLFW_KEY_H,
                 "key.categories.crysis");
         event.register(SKILLTREE_KEY);
+
+        MARK_ENTITY_KEY = new KeyMapping(
+                "key.crysis.mark_entity",
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_GRAVE_ACCENT,
+                "key.categories.crysis");
+        event.register(MARK_ENTITY_KEY);
     }
 }
