@@ -9,7 +9,7 @@
     "images": [
         {
             "name":   "u_TrailRW",
-            "format": "r16f"
+            "format": "r16"
         }
     ],
     "uniforms": [
