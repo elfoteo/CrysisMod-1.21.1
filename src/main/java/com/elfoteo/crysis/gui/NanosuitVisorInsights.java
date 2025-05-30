@@ -4,6 +4,8 @@ import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.gui.util.EntityDisposition;
 import com.elfoteo.crysis.keybindings.ModKeyBindings;
 import com.elfoteo.crysis.nanosuit.Nanosuit;
+import com.elfoteo.crysis.skill.Skill;
+import com.elfoteo.crysis.skill.SkillData;
 import com.elfoteo.crysis.util.SuitModes;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
@@ -112,7 +114,7 @@ public class NanosuitVisorInsights {
     public static Entity getLookedAtEntity() {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
-        if (player == null) return null;
+        if (player == null || !SkillData.isUnlocked(Skill.VISOR_INSIGHT, player)) return null;
 
         int currentTick = (int) mc.level.getGameTime();
         if (currentTick != lastEntityTick) {
@@ -184,11 +186,10 @@ public class NanosuitVisorInsights {
     @SubscribeEvent
     public static void onRenderHUD(RenderGuiLayerEvent.Pre event) {
         if (!VanillaGuiLayers.SCOREBOARD_SIDEBAR.equals(event.getName())) return;
-        if (Nanosuit.currentClientMode != SuitModes.VISOR.get()) return;
-
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null) return;
+        if (Nanosuit.currentClientMode != SuitModes.VISOR.get() || !SkillData.isUnlocked(Skill.VISOR_INSIGHT, player)) return;
 
         Entity target = getLookedAtEntity();
         if (target == null) return;

@@ -71,7 +71,7 @@ void main() {
     vec3 snappedAbs = floor(absPos);  // No longer multiply by 16, just floor to block coords
     vec3 snappedRel = snappedAbs - CameraPos;
 
-    float lightHeat  = clamp(max((blockLight - 0.3) * 0.3, 0), 0.0, 1.0);
+    float lightHeat  = clamp((blockLight - .8) * 0.8 , 0.0, 1.0);
     float entityHeat = computeEntityHeatAt(snappedRel);
     float combined   = max(lightHeat, entityHeat);
 

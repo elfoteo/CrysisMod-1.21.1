@@ -6,6 +6,7 @@ import com.elfoteo.crysis.gui.NanosuitVisorInsights;
 import com.elfoteo.crysis.gui.util.EntityDisposition;
 import com.elfoteo.crysis.keybindings.ModKeyBindings;
 import com.elfoteo.crysis.util.InfraredShader;
+import com.elfoteo.crysis.util.SuitUtils;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
@@ -14,6 +15,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.client.Camera;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
@@ -32,8 +34,9 @@ public class ModClientEvents {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onClientTick(ClientTickEvent.Post event) {
-        if (ModKeyBindings.SKILLTREE_KEY != null && ModKeyBindings.SKILLTREE_KEY.consumeClick()) {
-            Minecraft mc = Minecraft.getInstance();
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc.player;
+        if (ModKeyBindings.SKILLTREE_KEY != null && ModKeyBindings.SKILLTREE_KEY.consumeClick() && player != null && SuitUtils.isWearingFullNanosuit(player)) {
             if (mc.screen == null) {
                 mc.setScreen(new NanosuitSkillTree());
             }
