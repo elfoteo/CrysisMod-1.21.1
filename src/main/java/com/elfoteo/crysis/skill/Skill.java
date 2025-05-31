@@ -33,15 +33,15 @@ public enum Skill {
             new Skill[]{GHOST_TITAN, GHOST_KILL}),
 
     // === MOVEMENT BRANCH ===
-    GROUND_SKIN(Branch.MOVEMENT, "nanosuit/ground_skin", "Ground Skin",
+    SOFT_FALL(Branch.MOVEMENT, "nanosuit/soft_fall", "Soft fall",
             "All fall damage is negated if you have enough energy.",
             new Skill[]{}),
     POWER_JUMP(Branch.MOVEMENT, "nanosuit/power_jump", "Power jump",
             "Crouch to charge a power jump. Release by jumping to launch into the air.",
-            new Skill[]{GROUND_SKIN}),
+            new Skill[]{SOFT_FALL}),
     SHOCK_ABSORPTION(Branch.MOVEMENT, "nanosuit/shock_absorption", "Shock Absorption",
             "Negates fall damage from drops under 10 blocks.",
-            new Skill[]{POWER_JUMP}),
+            new Skill[]{SOFT_FALL}),
     SHOCKWAVE_SLAM(Branch.MOVEMENT, "nanosuit/shockwave_slam", "Shockwave Slam",
             "Falling from great height triggers a damaging AoE slam.",
             new Skill[]{SHOCK_ABSORPTION}),

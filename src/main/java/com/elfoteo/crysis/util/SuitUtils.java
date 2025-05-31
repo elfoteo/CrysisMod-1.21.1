@@ -79,7 +79,7 @@ public class SuitUtils {
 
         if (source.is(DamageTypes.FALL)) {
             energyPerDamage = 1.5f;
-            if (SkillData.isUnlocked(Skill.GROUND_SKIN, player)) {
+            if (SkillData.isUnlocked(Skill.SOFT_FALL, player)) {
                 absorptionRate = 1.0f;
             } else {
                 absorptionRate = 0.0f;
