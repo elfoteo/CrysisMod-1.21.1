@@ -1,5 +1,6 @@
 package com.elfoteo.crysis.gui;
 
+import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.attachments.ModAttachments;
 import com.elfoteo.crysis.network.custom.skills.GetAllSkillsPacket;
 import com.elfoteo.crysis.network.custom.skills.ResetSkillsPacket;
@@ -70,7 +71,7 @@ public class NanosuitSkillTree extends Screen {
     private Map<Skill, Point> skillCoords;
 
     public NanosuitSkillTree() {
-        super(Component.translatable("gui.crysis.skilltree"));
+        super(Component.translatable("gui."+ CrysisMod.MOD_ID +".skilltree"));
     }
 
     @Override
@@ -160,7 +161,7 @@ public class NanosuitSkillTree extends Screen {
             }
 
             // Move to next branch position (with padding)
-            branchYOffset += (maxSkillsAtDepth * V_SPACING) + V_SPACING * 2; // Extra padding between branches
+            branchYOffset += (int) ((maxSkillsAtDepth * V_SPACING) + V_SPACING * .6f); // Extra padding between branches
         }
 
         // Step 4: Position skills within each branch

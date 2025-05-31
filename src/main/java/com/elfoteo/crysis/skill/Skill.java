@@ -33,7 +33,7 @@ public enum Skill {
             new Skill[]{GHOST_TITAN, GHOST_KILL}),
 
     // === MOVEMENT BRANCH ===
-    GROUND_SKIN(Branch.MOVEMENT, "nanosuit/ground_skim", "Ground Skim",
+    GROUND_SKIN(Branch.MOVEMENT, "nanosuit/ground_skin", "Ground Skin",
             "All fall damage is negated if you have enough energy.",
             new Skill[]{}),
     POWER_JUMP(Branch.MOVEMENT, "nanosuit/power_jump", "Power jump",

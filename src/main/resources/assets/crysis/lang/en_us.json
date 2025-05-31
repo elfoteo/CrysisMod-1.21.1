@@ -75,5 +75,6 @@
     "trim_material.crysis.bismuth": "Bismuth Material",
     "entity.mccourse.gecko": "Gecko",
     "entity.mccourse.tomahawk": "Tomahawk",
-    "gui.crysis.reset": "Reset"
+    "gui.crysis.reset": "Reset",
+    "gui.crysis.skilltree": "Skill Tree"
 }
