@@ -3,6 +3,8 @@
   "package": "com.elfoteo.crysis.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "nanosuit.MobCanAttackMixin",
+    "nanosuit.TargetGoalMixin",
     "nanosuit.upgrades.NanosuitNoSoundMixin",
     "nanosuit.upgrades.NanosuitNoVibrations"
   ],

@@ -1,4 +1,5 @@
 package com.elfoteo.crysis;
+import com.elfoteo.crysis.attachments.AttachmentSyncing;
 import com.elfoteo.crysis.attachments.ModAttachments;
 import com.elfoteo.crysis.block.entity.renderer.CreativeVendingMachineBlockEntityRenderer;
 import com.elfoteo.crysis.event.PowerJumpUpgrade;
@@ -76,6 +77,7 @@ public class CrysisMod {
         NeoForge.EVENT_BUS.register(NanosuitUpgrades.class);
         NeoForge.EVENT_BUS.register(RegenerationSystem.class);
         NeoForge.EVENT_BUS.register(PowerJumpUpgrade.class);
+        NeoForge.EVENT_BUS.register(AttachmentSyncing.class);
         if (FMLLoader.getDist() == Dist.CLIENT){
             modEventBus.register(InfraredShader.class);
         }

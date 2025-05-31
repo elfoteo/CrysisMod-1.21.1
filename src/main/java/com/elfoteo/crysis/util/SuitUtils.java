@@ -140,4 +140,8 @@ public class SuitUtils {
     private static float getAvailableEnergy(Player player) {
         return player.getData(ModAttachments.ENERGY);
     }
+
+    public static boolean isCloaked(Player player) {
+        return isWearingFullNanosuit(player) && player.getData(ModAttachments.SUIT_MODE) == SuitModes.CLOAK.get();
+    }
 }

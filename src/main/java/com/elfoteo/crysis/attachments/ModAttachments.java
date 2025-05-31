@@ -43,7 +43,7 @@ public class ModAttachments {
 
     public static final Supplier<AttachmentType<Integer>> SUIT_MODE = ATTACHMENT_TYPES.register(
             "suit_mode",
-            () -> AttachmentType.builder(() -> 0)
+            () -> AttachmentType.builder(() -> 1)
                     .serialize(Codec.INT)
                     .build()
     );

@@ -21,6 +21,7 @@ import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -182,6 +183,9 @@ public abstract class NanosuitLivingEntityRenderer<T extends LivingEntity, M ext
             // Render layers if not spectator
             if (!entity.isSpectator()) {
                 for (RenderLayer<T, M> layer : layers) {
+                    if (isCloak && !(layer instanceof HumanoidArmorLayer<?,?,?>)){
+                        continue;
+                    }
                     layer.render(poseStack, buffer, packedLight, entity,
                             walkPos, walkSpeed, partialTicks, bob, yawDelta, pitch);
                 }
