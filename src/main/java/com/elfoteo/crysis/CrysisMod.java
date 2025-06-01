@@ -2,6 +2,7 @@ package com.elfoteo.crysis;
 import com.elfoteo.crysis.attachments.AttachmentSyncing;
 import com.elfoteo.crysis.attachments.ModAttachments;
 import com.elfoteo.crysis.block.entity.renderer.CreativeVendingMachineBlockEntityRenderer;
+import com.elfoteo.crysis.block.entity.renderer.FlagBlockEntityRenderer;
 import com.elfoteo.crysis.event.PowerJumpUpgrade;
 import com.elfoteo.crysis.gui.BuyingVendingMachineScreen;
 import com.elfoteo.crysis.gui.CreativeVendingMachineScreen;
@@ -151,6 +152,7 @@ public class CrysisMod {
         @SubscribeEvent
         public static void registerBER(EntityRenderersEvent.RegisterRenderers event) {
             event.registerBlockEntityRenderer(ModBlockEntities.PEDESTAL_BE.get(), PedestalBlockEntityRenderer::new);
+            event.registerBlockEntityRenderer(ModBlockEntities.FLAG_BE.get(), FlagBlockEntityRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.CREATIVE_VENDING_MACHINE_BE.get(), CreativeVendingMachineBlockEntityRenderer::new);
         }
         @SubscribeEvent

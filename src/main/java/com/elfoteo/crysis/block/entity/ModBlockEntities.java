@@ -13,6 +13,10 @@ public class ModBlockEntities {
             .register("pedestal_be", () -> BlockEntityType.Builder.of(
                     PedestalBlockEntity::new, ModBlocks.PEDESTAL.get()).build(null));
 
+    public static final Supplier<BlockEntityType<FlagBlockEntity>> FLAG_BE = BLOCK_ENTITIES
+            .register("flag_be", () -> BlockEntityType.Builder.of(
+                    FlagBlockEntity::new, ModBlocks.FLAG.get()).build(null));
+
     public static final Supplier<BlockEntityType<CreativeVendingMachineBlockEntity>> CREATIVE_VENDING_MACHINE_BE = BLOCK_ENTITIES
             .register("creative_vending_machine_be", () -> BlockEntityType.Builder.of(
                     CreativeVendingMachineBlockEntity::new, ModBlocks.CREATIVE_VENDING_MACHINE.get()).build(null));

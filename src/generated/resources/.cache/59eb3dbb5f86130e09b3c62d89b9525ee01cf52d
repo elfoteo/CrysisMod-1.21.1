@@ -1,4 +1,4 @@
-// 1.21.1	2025-05-25T17:23:06.559881468	Loot Tables
+// 1.21.1	2025-06-01T18:07:52.98668419	Loot Tables
 24b63abe4b64c7a7e4d721ef391c8c8fec0a225d data/crysis/loot_table/blocks/bismuth_block.json
 f69f229635fa8724208cdbd47a29fdbcb12cb06e data/crysis/loot_table/blocks/bismuth_button.json
 00c34a8d628e108769127b4397a8c13105e28bcb data/crysis/loot_table/blocks/bismuth_deepslate_ore.json
@@ -21,6 +21,7 @@ bc36c9de3fa91cd2e9a8c88e8fe0f0d892eae9c3 data/crysis/loot_table/blocks/bloodwood
 bb901ba40fbdfd39f5b3921eedce1c882ddf6b28 data/crysis/loot_table/blocks/bloodwood_wood.json
 37cb0c112c642950efb4f24c25ff7e52b0f981a8 data/crysis/loot_table/blocks/chair.json
 9303c46e223596ed0f94d30b76280f399e0c236e data/crysis/loot_table/blocks/creative_vending_machine.json
+d8932b9f2e5cc0fbfe4babd631b945b12df953be data/crysis/loot_table/blocks/flag.json
 8d1e5590513db76e9683fa32410eec55ce0898d3 data/crysis/loot_table/blocks/goji_berry_bush.json
 7051bb88386926154521a1aa0b9e3c0436f2e230 data/crysis/loot_table/blocks/growth_chamber.json
 ac4f14b79adbb50fadd2f1ce299168960ddeee0b data/crysis/loot_table/blocks/pedestal.json

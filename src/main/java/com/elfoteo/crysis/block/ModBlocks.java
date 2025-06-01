@@ -1,6 +1,7 @@
 package com.elfoteo.crysis.block;
 import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.block.custom.*;
+import com.elfoteo.crysis.block.entity.FlagBlockEntity;
 import com.elfoteo.crysis.item.ModItems;
 import com.elfoteo.crysis.sound.ModSounds;
 import com.elfoteo.crysis.worldgen.tree.ModTreeGrowers;
@@ -97,6 +98,8 @@ public class ModBlocks {
 
     public static final DeferredBlock<Block> CREATIVE_VENDING_MACHINE = registerBlock("creative_vending_machine",
             () -> new CreativeVendingMachineBlock(BlockBehaviour.Properties.of().noOcclusion()));
+    public static final DeferredBlock<Block> FLAG = registerBlock("flag",
+            () -> new FlagBlock(BlockBehaviour.Properties.of()));
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);

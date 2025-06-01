@@ -1,4 +1,4 @@
-// 1.21.1	2025-05-25T17:23:06.558621316	Block States: crysis
+// 1.21.1	2025-06-01T18:07:52.984854376	Block States: crysis
 a6cc7c470471ff38d8575f3522383305d97563a8 assets/crysis/blockstates/bismuth_block.json
 efad4f63c6ef4e17dbb010d0b083c2245b5282ae assets/crysis/blockstates/bismuth_button.json
 33a82607a71a6a41231426a5729f3e54a0d0aed3 assets/crysis/blockstates/bismuth_deepslate_ore.json
@@ -19,6 +19,7 @@ d6e72ff3dada79d55e7b940b77d481380ac97535 assets/crysis/blockstates/bloodwood_lea
 1ebd3c0ab9fc3146a88dcf61d90bf26f114470cc assets/crysis/blockstates/bloodwood_planks.json
 3969e73142060ff480739989919038ee86f3b4e3 assets/crysis/blockstates/bloodwood_sapling.json
 1d47c64c3ed17682738c4c697feb3d5896923147 assets/crysis/blockstates/bloodwood_wood.json
+2ddd858e40cf20c47188f114989feed79d14bbd0 assets/crysis/blockstates/flag.json
 e8df9af09aa20b3b7ab76ca8c7cffa10304d11c0 assets/crysis/blockstates/goji_berry_bush.json
 020bdfc2db2b6039ea4ebad855863b4afe4894bb assets/crysis/blockstates/growth_chamber.json
 7b7cc6881a427c75d2c4572491214eb531bfddb3 assets/crysis/blockstates/magic_block.json
@@ -68,6 +69,7 @@ dbc381764720494c1616a35576da84c851dd302e assets/crysis/models/block/bloodwood_lo
 fa89fac80027c577844395a9ff8874499ba8abac assets/crysis/models/block/bloodwood_sapling.json
 c2e64fefab74386997c7454da73f434d3753ed1b assets/crysis/models/block/bloodwood_wood.json
 e88e0bcb294f3857413c29a50e19bc97d7a3bbca assets/crysis/models/block/bloodwood_wood_horizontal.json
+1dfbc618cb1635f18ada454f4918f8ef6ec76317 assets/crysis/models/block/flag.json
 e7e244976c71f1e49f5f1b8a00f870e51c4401d7 assets/crysis/models/block/goji_berry_bush_stage0.json
 757a6cd8d540c479a54da7391a62c4a930b706bd assets/crysis/models/block/goji_berry_bush_stage1.json
 f77a39d8660fb66ac2b3eedfe731d0f0658d3495 assets/crysis/models/block/goji_berry_bush_stage2.json
@@ -97,6 +99,7 @@ e0a5b0ab94c51e06097b31e1a9060eb77bd016e3 assets/crysis/models/item/bismuth_end_o
 bd3b18b7f4576817583d683f110e2c1fc4854783 assets/crysis/models/item/bloodwood_log.json
 6841b83c9f5bd5fa1fd14c33ebe04c9dcaa4efa2 assets/crysis/models/item/bloodwood_planks.json
 ea8a5327d6a6f89480df4d7138b81f8d8f833367 assets/crysis/models/item/bloodwood_wood.json
+be763528d3a08cff55db5a53831a3b1fe506bed2 assets/crysis/models/item/flag.json
 72a9905f6ed9cfecd32fdefb2b5ab4dbcf37bc01 assets/crysis/models/item/growth_chamber.json
 ca0371516c8add669b73c796033a7203d8b349d4 assets/crysis/models/item/magic_block.json
 c20e60fd92ec6ab6d9440c2f9c9daef75536d096 assets/crysis/models/item/stripped_bloodwood_log.json

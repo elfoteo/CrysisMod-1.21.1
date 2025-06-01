@@ -65,6 +65,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
         leavesBlock(ModBlocks.BLOODWOOD_LEAVES);
         saplingBlock(ModBlocks.BLOODWOOD_SAPLING);
         blockWithItem(ModBlocks.GROWTH_CHAMBER);
+        blockWithItem(ModBlocks.FLAG);
     }
     private void saplingBlock(DeferredBlock<Block> blockRegistryObject) {
         simpleBlock(blockRegistryObject.get(),
