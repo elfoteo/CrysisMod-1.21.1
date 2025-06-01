@@ -31,20 +31,7 @@ public abstract class ModelRenderMixin {
     @Inject(method = "renderToBuffer(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;II)V",
             at = @At("HEAD"), cancellable = true)
     private void onRenderToBuffer(PoseStack poseStack, VertexConsumer ignoredOriginalConsumer, int packedLight, int packedOverlay, CallbackInfo ci) {
-        if (Nanosuit.currentClientMode != SuitModes.VISOR.get()) return;
 
-        // Get `this` as a Model instance
-        Model self = (Model) (Object) this;
-
-        // Create our own buffer using RedShader
-        MultiBufferSource.BufferSource buffer = MultiBufferSource.immediate(new ByteBufferBuilder(16384));
-        VertexConsumer customConsumer = buffer.getBuffer(InfraredShader.INFRARED_SOLID_RENDERTYPE);
-
-        // Call the abstract version (you can only do this if you’re extending your own subclass or know the model instance)
-        // Use a dummy color value (-1 means no color override)
-        self.renderToBuffer(poseStack, customConsumer, packedLight, packedOverlay, -1);
-
-        ci.cancel(); // Prevent default behavior
     }
 
     private static Optional<ResourceLocation> extractTexture(RenderType type) {

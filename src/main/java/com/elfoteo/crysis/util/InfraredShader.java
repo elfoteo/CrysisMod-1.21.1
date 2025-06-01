@@ -135,12 +135,15 @@ public class InfraredShader {
     public static RenderStateShard.ShaderStateShard INFRARED_ARMOR_SHADER_SHARD;
     public static RenderStateShard.ShaderStateShard INFRARED_ITEM_SHADER_SHARD;
 
-    private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_ENTITY_GENERIC;
+    public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_ENTITY_GENERIC;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_UNDEAD_GENERIC;
+    private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_TRANSLUCENT;
+    private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_CUTOUT_NO_CULL_Z_OFFSET;
     private static Function<ResourceLocation, RenderType> ARMOR_INFRARED_RENDER_TYPE;
     private static Function<ResourceLocation, RenderType> NANOSUIT_OVERLAY_RENDER_TYPE;
     private static Function<ResourceLocation, RenderType> INFRARED_ENTITY_TRANSLUCENT_CULL_FOR_ITEMS;
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_CUTOUT_NO_CULL;
+    public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_BLOCK;
 
     public static BiFunction<ResourceLocation, Boolean, RenderType> TARGET_INDICATOR;
 
@@ -309,8 +312,45 @@ public class InfraredShader {
                 return RenderType.create("infrared_entity_cutout_no_cull", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false, rendertype$compositestate);
             });
 
+            INFRARED_BLOCK = Util.memoize((p_286166_, p_286167_) -> {
+                CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
+                        .setShaderState(new RenderStateShard.ShaderStateShard(() -> Blocks.SOLID_SHADER)) // TODO: Replace with proper shader if needed
+                        .setTextureState(new RenderStateShard.TextureStateShard(p_286166_, false, false))
+                        .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
+                        .setCullState(RenderType.NO_CULL)
+                        .setLightmapState(RenderType.LIGHTMAP)
+                        .setOverlayState(RenderType.OVERLAY)
+                        .createCompositeState(p_286167_);
+                return RenderType.create("infrared_block", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false, rendertype$compositestate);
+            });
+
             ARMOR_INFRARED_RENDER_TYPE = Util.memoize((textureLocation) -> createInfraredArmorCutoutNoCull("armor_infrared_render_type", textureLocation));
             NANOSUIT_OVERLAY_RENDER_TYPE = Util.memoize((textureLocation) -> createNanosuitOverlay("nanosuit_overlay_render_type", textureLocation));
+
+            INFRARED_ENTITY_TRANSLUCENT = Util.memoize((p_286156_, p_286157_) -> {
+                CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
+                        .setShaderState(new RenderStateShard.ShaderStateShard(() -> Blocks.SOLID_SHADER))
+                        .setTextureState(new RenderStateShard.TextureStateShard(p_286156_, false, false))
+                        .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
+                        .setCullState(RenderType.NO_CULL)
+                        .setLightmapState(RenderType.LIGHTMAP)
+                        .setOverlayState(RenderType.OVERLAY)
+                        .createCompositeState(p_286157_);
+                return RenderType.create("infrared_entity_translucent", DefaultVertexFormat.NEW_ENTITY, Mode.QUADS, 1536, true, true, rendertype$compositestate);
+            });
+
+            INFRARED_ENTITY_CUTOUT_NO_CULL_Z_OFFSET = Util.memoize((p_286153_, p_286154_) -> {
+                CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
+                        .setShaderState(new RenderStateShard.ShaderStateShard(() -> Blocks.SOLID_SHADER))
+                        .setTextureState(new RenderStateShard.TextureStateShard(p_286153_, false, false))
+                        .setTransparencyState(RenderType.NO_TRANSPARENCY)
+                        .setCullState(RenderType.NO_CULL)
+                        .setLightmapState(RenderType.LIGHTMAP)
+                        .setOverlayState(RenderType.OVERLAY)
+                        .setLayeringState(RenderType.VIEW_OFFSET_Z_LAYERING)
+                        .createCompositeState(p_286154_);
+                return RenderType.create("entity_cutout_no_cull_z_offset", DefaultVertexFormat.NEW_ENTITY, Mode.QUADS, 1536, true, false, rendertype$compositestate);
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -322,6 +362,10 @@ public class InfraredShader {
 
     public static RenderType infraredEntityCutoutNoCull(ResourceLocation location) {
         return infraredEntityCutoutNoCull(location, true);
+    }
+
+    public static RenderType infraredBlock(ResourceLocation location) {
+        return INFRARED_BLOCK.apply(location, true);
     }
 
     public static RenderType infraredEntityGeneric(ResourceLocation location) {
@@ -375,6 +419,22 @@ public class InfraredShader {
 
     public static RenderType targetIndicator(ResourceLocation location) {
         return TARGET_INDICATOR.apply(location, true);
+    }
+
+    public static RenderType infraredEntityTranslucent(ResourceLocation location, boolean outline) {
+        return INFRARED_ENTITY_TRANSLUCENT.apply(location, outline);
+    }
+
+    public static RenderType infraredEntityTranslucent(ResourceLocation location) {
+        return infraredEntityTranslucent(location, true);
+    }
+
+    public static RenderType infraredEntityCutoutNoCullZOffset(ResourceLocation location, boolean outline) {
+        return INFRARED_ENTITY_CUTOUT_NO_CULL_Z_OFFSET.apply(location, outline);
+    }
+
+    public static RenderType infraredEntityCutoutNoCullZOffset(ResourceLocation location) {
+        return infraredEntityCutoutNoCullZOffset(location, true);
     }
 
     @OnlyIn(Dist.CLIENT)

@@ -1,58 +1,67 @@
 package com.elfoteo.crysis.util;
 
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.opengl.*;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Manages a single 512×512×384 R16 3D “trail” texture in world‐space.
+ * Manages a single 512×512×384 R16 3D "trail" texture in world‐space.
  * Handles allocation, compute‐shader setup, shifting, world‐offset tracking,
  * and (now) binding/unbinding for rendering.
+ *
+ * This is a static utility class - all methods and fields are static.
  */
 public class TrailTextureManager {
     // ---------------------------------------------------------
     // Texture IDs and size
     // ---------------------------------------------------------
-    private int trailTextureId     = -1;
-    private int tempTrailTextureId = -1;
-    private final int trailTexWidth  = 512;
-    private final int trailTexHeight = 512;
-    private final int trailTexDepth  = 384;
+    private static int trailTextureId     = -1;
+    private static int tempTrailTextureId = -1;
+    private static final int trailTexWidth  = 512;
+    private static final int trailTexHeight = 512;
+    private static final int trailTexDepth  = 384;
 
-    // The origin (in blocks) of the “(0,0,0)” texel:
-    private int worldOffsetX = 0;
-    private int worldOffsetY = 0;
-    private int worldOffsetZ = 0;
+    // The origin (in blocks) of the "(0,0,0)" texel:
+    private static int worldOffsetX = 0;
+    private static int worldOffsetY = 0;
+    private static int worldOffsetZ = 0;
 
     // Has the shader / texture been initialized yet this session?
-    private boolean textureInitialized = false;
+    private static boolean textureInitialized = false;
+    private static final Minecraft minecraft = Minecraft.getInstance();
 
     // ---------------------------------------------------------
     // Compute‐shader objects
     // ---------------------------------------------------------
-    private int shiftComputeShader  = -1;
-    private int shiftComputeProgram = -1;
+    private static int shiftComputeShader  = -1;
+    private static int shiftComputeProgram = -1;
 
     // ---------------------------------------------------------
     // Timing (per‐RenderType)
     // ---------------------------------------------------------
-    private final Map<Object /* RenderType */, Long> lastCallTimes    = new HashMap<>();
-    private final Map<Object /* RenderType */, Float> cachedDeltaTimes = new HashMap<>();
+    private static final Map<Object /* RenderType */, Long> lastCallTimes    = new HashMap<>();
+    private static final Map<Object /* RenderType */, Float> cachedDeltaTimes = new HashMap<>();
 
     // ---------------------------------------------------------
     // Saved GL state (for binding/unbinding)
     // ---------------------------------------------------------
-    private int prevActiveTextureUnit = GL13.GL_TEXTURE0;
-    private int prevTex2D             = 0;
-    private int prevTex3D             = 0;
+    private static int prevActiveTextureUnit = GL13.GL_TEXTURE0;
+    private static int prevTex2D             = 0;
+    private static int prevTex3D             = 0;
 
-    public TrailTextureManager() {
-        // No‐arg constructor; fields are already initialized above.
+    // Private constructor to prevent instantiation
+    private TrailTextureManager() {
+        throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 
     // ----------------------------------------------------------------
@@ -60,17 +69,17 @@ public class TrailTextureManager {
     // ----------------------------------------------------------------
 
     /** Current world‐space X offset (in blocks) that corresponds to texel (0,*,*). */
-    public int getWorldOffsetX() {
+    public static int getWorldOffsetX() {
         return worldOffsetX;
     }
 
     /** Current world‐space Y offset (in blocks) that corresponds to texel (*,0,*). */
-    public int getWorldOffsetY() {
+    public static int getWorldOffsetY() {
         return worldOffsetY;
     }
 
     /** Current world‐space Z offset (in blocks) that corresponds to texel (*,*,0). */
-    public int getWorldOffsetZ() {
+    public static int getWorldOffsetZ() {
         return worldOffsetZ;
     }
 
@@ -78,7 +87,7 @@ public class TrailTextureManager {
      * Returns the delta time (in seconds) since the last call for this RenderType.
      * The first time this is called for a given RenderType, returns 0.0f.
      */
-    public float getDeltaTimeFor(Object renderType) {
+    public static float getDeltaTimeFor(Object renderType) {
         long currentTime = System.nanoTime();
         Long lastTime = lastCallTimes.get(renderType);
 
@@ -99,11 +108,8 @@ public class TrailTextureManager {
      * worldOffsetX/Y/Z so that the camera starts centered in a 512×512×384 region.
      * Must be called once before you attempt to shift or render.
      */
-    public void allocateOrResizeIfNeeded() {
-        int winW = Minecraft.getInstance().getWindow().getWidth();
-        int winH = Minecraft.getInstance().getWindow().getHeight();
-
-        // If already allocated and window size hasn’t changed, do nothing.
+    public static void allocateOrResizeIfNeeded() {
+        // If already allocated and window size hasn't changed, do nothing.
         if (trailTextureId != -1) {
             return;
         }
@@ -178,11 +184,11 @@ public class TrailTextureManager {
     }
 
     /**
-     * Call every frame (before rendering) to see if we need to “shift” the texture
+     * Call every frame (before rendering) to see if we need to "shift" the texture
      * based on how far the camera moved. If so, we dispatch the compute shader
      * to shift content, swap out the main texture, and update worldOffsetX/Y/Z.
      */
-    public void updateTexturePosition(Vec3 currentCameraPos) {
+    public static void updateTexturePosition(Vec3 currentCameraPos) {
         if (!textureInitialized) {
             // On first call, we do not shift—just mark as initialized.
             textureInitialized = true;
@@ -220,10 +226,10 @@ public class TrailTextureManager {
         }
 
         if (needsShift) {
-            // Note: we supply −shiftX etc. to move texels “toward” the camera.
+            // Note: we supply −shiftX etc. to move texels "toward" the camera.
             shiftTextureContent(-shiftX, -shiftY, -shiftZ);
 
-            // Now update world‐offset to reflect that the “window” has moved.
+            // Now update world‐offset to reflect that the "window" has moved.
             worldOffsetX += shiftX;
             worldOffsetY += shiftY;
             worldOffsetZ += shiftZ;
@@ -234,7 +240,7 @@ public class TrailTextureManager {
     // PRIVATE: compute‐shader initialization + shifting logic
     // ----------------------------------------------------------------
 
-    private void initializeComputeShader() {
+    private static void initializeComputeShader() {
         if (shiftComputeProgram != -1) return; // already done
 
         String computeShaderSource = """
@@ -285,7 +291,7 @@ public class TrailTextureManager {
         }
     }
 
-    private void shiftTextureContent(int deltaX, int deltaY, int deltaZ) {
+    private static void shiftTextureContent(int deltaX, int deltaY, int deltaZ) {
         if (shiftComputeProgram == -1) {
             System.err.println("Compute shader not initialized—cannot shift texture.");
             return;
@@ -296,7 +302,7 @@ public class TrailTextureManager {
         int prevTex3D_0    = GL11.glGetInteger(GL12.GL_TEXTURE_BINDING_3D);
 
         try {
-            // If our “temp” texture doesn’t exist yet, create it now
+            // If our "temp" texture doesn't exist yet, create it now
             if (tempTrailTextureId == -1) {
                 tempTrailTextureId = GL11.glGenTextures();
                 GL11.glBindTexture(GL12.GL_TEXTURE_3D, tempTrailTextureId);
@@ -315,7 +321,7 @@ public class TrailTextureManager {
             // 1. Use compute shader
             GL20.glUseProgram(shiftComputeProgram);
 
-            // 2. Bind “old” texture to unit 0 (read) and “temp” to unit 1 (write)
+            // 2. Bind "old" texture to unit 0 (read) and "temp" to unit 1 (write)
             GL42.glBindImageTexture(
                     0,
                     trailTextureId,
@@ -375,7 +381,7 @@ public class TrailTextureManager {
     // ---------------------------------------------------------
     // INTERNAL: expose texture ID so that mixin can bind it
     // ---------------------------------------------------------
-    public int getTrailTextureId() {
+    public static int getTrailTextureId() {
         return trailTextureId;
     }
 
@@ -387,9 +393,87 @@ public class TrailTextureManager {
     /**
      * Saves the current GL state (active texture unit, bound 2D, bound 3D),
      * then binds the trailTextureId as image unit 1 (read/write) and as sampler 2,
-     * and uploads the “TrailSampler” uniform to point at sampler unit 2.
+     * and uploads the "TrailSampler" uniform to point at sampler unit 2.
      */
-    public void bindForRender(ShaderInstance shaderInstance) {
+    public static void bindForRender(ShaderInstance shaderInstance, RenderType renderType, boolean useDelta) {
+        Camera camera = minecraft.gameRenderer.getMainCamera();
+        Vec3 camPos = camera.getPosition();
+        double searchRadius = 20.0;
+        AABB box = new AABB(
+                camPos.x - searchRadius, camPos.y - searchRadius, camPos.z - searchRadius,
+                camPos.x + searchRadius, camPos.y + searchRadius, camPos.z + searchRadius
+        );
+        List<Entity> nearby = minecraft.level.getEntities(null, box);
+
+        float[] entityData = new float[128]; // 16 × (2 × vec4)
+        int count = 0;
+        for (Entity e : nearby) {
+            if (count >= 16) break;
+            Vec3 epWorld = e.position();
+            float ex = (float) (epWorld.x - camPos.x);
+            float ey = (float) (epWorld.y - camPos.y);
+            float ez = (float) (epWorld.z - camPos.z);
+
+            float width  = e.getBbWidth()  * 4 * e.getBbHeight();
+            float height = e.getBbHeight() * 4 * e.getBbHeight();
+            ey += e.getBbHeight() / 2.0F;
+
+            int base = count * 8;
+            entityData[base + 0] = ex;
+            entityData[base + 1] = ey;
+            entityData[base + 2] = ez;
+            entityData[base + 3] = width;
+            entityData[base + 4] = height;
+            // leftover slots stay zero
+            count++;
+        }
+
+        var ec = shaderInstance.getUniform("EntityCount");
+        if (ec != null) {
+            ec.set(count);
+            ec.upload();
+        }
+        var ed = shaderInstance.getUniform("EntityData");
+        if (ed != null) {
+            ed.set(entityData);
+            ed.upload();
+        }
+
+        var cwp = shaderInstance.getUniform("CameraPos");
+        if (cwp != null) {
+            Vec3 c = minecraft.gameRenderer.getMainCamera().getPosition();
+            cwp.set((float) c.x, (float) c.y, (float) c.z);
+            cwp.upload();
+        }
+
+        // ———————————————————————————————
+        // 6) Upload world offsets from TrailTextureManager
+        // ———————————————————————————————
+        var uOffX = shaderInstance.getUniform("u_worldOffsetX");
+        if (uOffX != null) {
+            uOffX.set(getWorldOffsetX());
+            uOffX.upload();
+        }
+        var uOffY = shaderInstance.getUniform("u_worldOffsetY");
+        if (uOffY != null) {
+            uOffY.set(getWorldOffsetY());
+            uOffY.upload();
+        }
+        var uOffZ = shaderInstance.getUniform("u_worldOffsetZ");
+        if (uOffZ != null) {
+            uOffZ.set(getWorldOffsetZ());
+            uOffZ.upload();
+        }
+
+        // ———————————————————————————————
+        // 7) Upload deltaTime uniform
+        // ———————————————————————————————
+        var dt = shaderInstance.getUniform("u_deltaTime");
+        if (dt != null) {
+            dt.set(useDelta? getDeltaTimeFor(renderType): 0.01f);
+            dt.upload();
+        }
+
         // 1) Save the old active texture unit:
         prevActiveTextureUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
 
@@ -403,7 +487,7 @@ public class TrailTextureManager {
         // 3) Bind our 3D texture to image unit 1 for read/write
         GL42.glBindImageTexture(
                 1,
-                this.trailTextureId,
+                trailTextureId,
                 0,
                 true,
                 0,
@@ -413,9 +497,9 @@ public class TrailTextureManager {
 
         // 4) Also bind it to sampler unit 2
         GL13.glActiveTexture(GL13.GL_TEXTURE2);
-        GL11.glBindTexture(GL12.GL_TEXTURE_3D, this.trailTextureId);
+        GL11.glBindTexture(GL12.GL_TEXTURE_3D, trailTextureId);
 
-        // 5) Upload the “TrailSampler” uniform (so the shader samples from unit 2)
+        // 5) Upload the "TrailSampler" uniform (so the shader samples from unit 2)
         var trailSampler = shaderInstance.getUniform("TrailSampler");
         if (trailSampler != null) {
             trailSampler.set(2);
@@ -431,7 +515,7 @@ public class TrailTextureManager {
      * restores the old TEXTURE_3D binding on unit 2 and the old TEXTURE_2D on unit 0,
      * and then re‐activates whatever texture unit was active before.
      */
-    public void unbindAfterRender() {
+    public static void unbindAfterRender() {
         // 1) Unbind image unit 1:
         GL42.glBindImageTexture(
                 1,
@@ -453,5 +537,38 @@ public class TrailTextureManager {
 
         // 4) Finally, restore whichever texture unit was active before bindForRender():
         GL13.glActiveTexture(prevActiveTextureUnit);
+    }
+
+    /**
+     * Cleanup method to properly dispose of OpenGL resources.
+     * Should be called when shutting down or when the class is no longer needed.
+     */
+    public static void cleanup() {
+        if (trailTextureId != -1) {
+            GL11.glDeleteTextures(trailTextureId);
+            trailTextureId = -1;
+        }
+        if (tempTrailTextureId != -1) {
+            GL11.glDeleteTextures(tempTrailTextureId);
+            tempTrailTextureId = -1;
+        }
+        if (shiftComputeShader != -1) {
+            GL20.glDeleteShader(shiftComputeShader);
+            shiftComputeShader = -1;
+        }
+        if (shiftComputeProgram != -1) {
+            GL20.glDeleteProgram(shiftComputeProgram);
+            shiftComputeProgram = -1;
+        }
+
+        // Clear timing maps
+        lastCallTimes.clear();
+        cachedDeltaTimes.clear();
+
+        // Reset state
+        textureInitialized = false;
+        worldOffsetX = 0;
+        worldOffsetY = 0;
+        worldOffsetZ = 0;
     }
 }

@@ -134,10 +134,6 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         ci.cancel();
     }
 
-    // Keep a single manager to handle the 3D texture & shifting logic:
-    @Unique
-    private final TrailTextureManager trailManager = new TrailTextureManager();
-
     @Inject(
             method = "renderSectionLayer",
             at = @At("HEAD"),
@@ -161,13 +157,13 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         // ———————————————————————————————
         // 1) Ensure our 3D trail texture exists
         // ———————————————————————————————
-        trailManager.allocateOrResizeIfNeeded();
+        TrailTextureManager.allocateOrResizeIfNeeded();
 
         // ———————————————————————————————
         // 2) Possibly shift texture (if camera moved far enough)
         // ———————————————————————————————
         Vec3 currentCameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
-        trailManager.updateTexturePosition(currentCameraPos);
+        TrailTextureManager.updateTexturePosition(currentCameraPos);
 
         // ———————————————————————————————
         // 3) Vanilla translucent sorting (unchanged)
@@ -219,88 +215,12 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         // ———————————————————————————————
         // 5) Upload “hot entities” data (unchanged from your mixin)
         // ———————————————————————————————
-        Camera camera = minecraft.gameRenderer.getMainCamera();
-        Vec3 camPos = camera.getPosition();
-        double searchRadius = 20.0;
-        AABB box = new AABB(
-                camPos.x - searchRadius, camPos.y - searchRadius, camPos.z - searchRadius,
-                camPos.x + searchRadius, camPos.y + searchRadius, camPos.z + searchRadius
-        );
-        List<Entity> nearby = minecraft.level.getEntities(null, box);
 
-        float[] entityData = new float[128]; // 16 × (2 × vec4)
-        int count = 0;
-        for (Entity e : nearby) {
-            if (count >= 16) break;
-            Vec3 epWorld = e.position();
-            float ex = (float) (epWorld.x - camPos.x);
-            float ey = (float) (epWorld.y - camPos.y);
-            float ez = (float) (epWorld.z - camPos.z);
-
-            float width  = e.getBbWidth()  * 4 * e.getBbHeight();
-            float height = e.getBbHeight() * 4 * e.getBbHeight();
-            ey += e.getBbHeight() / 2.0F;
-
-            int base = count * 8;
-            entityData[base + 0] = ex;
-            entityData[base + 1] = ey;
-            entityData[base + 2] = ez;
-            entityData[base + 3] = width;
-            entityData[base + 4] = height;
-            // leftover slots stay zero
-            count++;
-        }
-
-        var ec = shaderInstance.getUniform("EntityCount");
-        if (ec != null) {
-            ec.set(count);
-            ec.upload();
-        }
-        var ed = shaderInstance.getUniform("EntityData");
-        if (ed != null) {
-            ed.set(entityData);
-            ed.upload();
-        }
-
-        var cwp = shaderInstance.getUniform("CameraPos");
-        if (cwp != null) {
-            Vec3 c = minecraft.gameRenderer.getMainCamera().getPosition();
-            cwp.set((float) c.x, (float) c.y, (float) c.z);
-            cwp.upload();
-        }
-
-        // ———————————————————————————————
-        // 6) Upload world offsets from TrailTextureManager
-        // ———————————————————————————————
-        var uOffX = shaderInstance.getUniform("u_worldOffsetX");
-        if (uOffX != null) {
-            uOffX.set(trailManager.getWorldOffsetX());
-            uOffX.upload();
-        }
-        var uOffY = shaderInstance.getUniform("u_worldOffsetY");
-        if (uOffY != null) {
-            uOffY.set(trailManager.getWorldOffsetY());
-            uOffY.upload();
-        }
-        var uOffZ = shaderInstance.getUniform("u_worldOffsetZ");
-        if (uOffZ != null) {
-            uOffZ.set(trailManager.getWorldOffsetZ());
-            uOffZ.upload();
-        }
-
-        // ———————————————————————————————
-        // 7) Upload deltaTime uniform
-        // ———————————————————————————————
-        var dt = shaderInstance.getUniform("u_deltaTime");
-        if (dt != null) {
-            dt.set(trailManager.getDeltaTimeFor(renderType));
-            dt.upload();
-        }
 
         // ———————————————————————————————
         // 8) Bind the 3D trail texture and sampler (now inside TrailTextureManager)
         // ———————————————————————————————
-        trailManager.bindForRender(shaderInstance);
+        TrailTextureManager.bindForRender(shaderInstance, renderType, true);
 
         // ———————————————————————————————
         // 9) Draw all visible sections with our custom shader
@@ -344,7 +264,7 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         // 10) Restore GL state (unbind image unit, restore texture bindings)
         //     (now inside TrailTextureManager)
         // ———————————————————————————————
-        trailManager.unbindAfterRender();
+        TrailTextureManager.unbindAfterRender();
 
         // ———————————————————————————————
         // 11) Cleanup: clear shader, unbind VB, pop profiler, cancel
