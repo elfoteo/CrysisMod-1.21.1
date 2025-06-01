@@ -244,14 +244,15 @@ public class NanosuitUpgrades {
             }
         }
     }
-
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onKineticPunchDamage(LivingIncomingDamageEvent event) {
         Entity attacker = event.getSource().getEntity();
         if (!(attacker instanceof Player player)) return;
 
         DamageSource source = event.getSource();
-        if (!source.is(DamageTypes.PLAYER_ATTACK)) return;
+
+        // Check it's a true melee hit: direct entity must be the player and the source type is PLAYER_ATTACK
+        if (!source.is(DamageTypes.PLAYER_ATTACK) || source.getDirectEntity() != player) return;
 
         if (SkillData.isUnlocked(Skill.KINETIC_PUNCH, player)) {
             LivingEntity target = event.getEntity();
