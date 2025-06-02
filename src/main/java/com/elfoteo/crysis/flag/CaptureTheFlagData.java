@@ -1,4 +1,3 @@
-// src/main/java/com/elfoteo/crysis/flag/CaptureTheFlagData.java
 package com.elfoteo.crysis.flag;
 
 import net.minecraft.core.BlockPos;
@@ -7,7 +6,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.NotNull;
 
@@ -103,6 +101,22 @@ public class CaptureTheFlagData extends SavedData {
 
     public void incrementBlueScore(int amount) {
         this.blueScore += amount;
+        this.setDirty();
+    }
+
+    public void setRedScore(int score) {
+        this.redScore = score;
+        this.setDirty();
+    }
+
+    public void setBlueScore(int score) {
+        this.blueScore = score;
+        this.setDirty();
+    }
+
+    public void resetScores() {
+        this.redScore = 0;
+        this.blueScore = 0;
         this.setDirty();
     }
 

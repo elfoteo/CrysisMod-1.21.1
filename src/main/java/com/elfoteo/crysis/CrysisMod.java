@@ -3,7 +3,9 @@ import com.elfoteo.crysis.attachments.AttachmentSyncing;
 import com.elfoteo.crysis.attachments.ModAttachments;
 import com.elfoteo.crysis.block.entity.renderer.CreativeVendingMachineBlockEntityRenderer;
 import com.elfoteo.crysis.block.entity.renderer.FlagBlockEntityRenderer;
+import com.elfoteo.crysis.commands.ModCommands;
 import com.elfoteo.crysis.event.PowerJumpUpgrade;
+import com.elfoteo.crysis.flag.CaptureTheFlagData;
 import com.elfoteo.crysis.gui.BuyingVendingMachineScreen;
 import com.elfoteo.crysis.gui.CreativeVendingMachineScreen;
 import com.elfoteo.crysis.nanosuit.NanosuitUpgrades;
@@ -35,12 +37,24 @@ import com.elfoteo.crysis.sound.ModSounds;
 import com.elfoteo.crysis.util.ModItemProperties;
 import com.elfoteo.crysis.util.InfraredShader;
 import com.elfoteo.crysis.villager.ModVillagers;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import net.minecraft.client.renderer.entity.EntityRenderers;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 import net.neoforged.api.distmarker.Dist;
@@ -73,7 +87,7 @@ public class CrysisMod {
         // to respond directly to events.
         // Do not add this line if there are no @SubscribeEvent-annotated functions in
         // this class, like onServerStarting() below.
-        // NeoForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.register(Nanosuit.class);
         NeoForge.EVENT_BUS.register(NanosuitUpgrades.class);
         NeoForge.EVENT_BUS.register(RegenerationSystem.class);
@@ -118,6 +132,14 @@ public class CrysisMod {
             event.accept(ModBlocks.BISMUTH_ORE);
         }
     }
+
+    @SubscribeEvent
+    public void onServerStarting(ServerStartingEvent event) {
+        CommandDispatcher<CommandSourceStack> dispatcher = event.getServer().getCommands().getDispatcher();
+        ModCommands.register(dispatcher);
+    }
+
+
     @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.MOD)
     public static class CommonModEvents {
         @SubscribeEvent
