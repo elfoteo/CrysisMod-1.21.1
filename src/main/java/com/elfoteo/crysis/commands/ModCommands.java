@@ -5,7 +5,7 @@ import net.minecraft.commands.CommandSourceStack;
 
 public class ModCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        FlagCommand.register(dispatcher);
+        CTFCommand.register(dispatcher);
         NanosuitCommand.register(dispatcher);
     }
 }
