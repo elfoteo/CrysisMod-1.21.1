@@ -49,8 +49,8 @@ public class FlagBlockEntityRenderer implements BlockEntityRenderer<FlagBlockEnt
         //    (You can also pack full alpha: 0xFF0000 or 0x0000FF; Minecraft’s beacon‐beam code masks out alpha.)
         int beamColor;
         switch (flagBE.getOwner()){
-            case RED -> beamColor = 0xFF0000;
-            case BLUE -> beamColor = 0x0000FF;
+            case RED -> beamColor = 0xFF5555;
+            case BLUE -> beamColor = 0x5555FF;
             default -> beamColor = 0xAAAAAA;
         }
 

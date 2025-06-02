@@ -1,3 +1,4 @@
+// NanosuitSkillTree.java
 package com.elfoteo.crysis.gui;
 
 import com.elfoteo.crysis.CrysisMod;
@@ -21,14 +22,12 @@ import net.neoforged.api.distmarker.OnlyIn;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 
-import java.awt.Point;
 import java.util.*;
 
 /**
- * A skill-tree GUI that "flows" its nodes horizontally by depth and stacks each
- * independent branch
- * vertically. No more hard-coded (x,y) in the Skill enum—everything is computed
- * at runtime.
+ * A skill-tree GUI that places each node at its predetermined (x,y).
+ * All dynamic layout logic has been removed.  You simply read the fixed
+ * coordinates from each Skill.
  */
 @OnlyIn(Dist.CLIENT)
 public class NanosuitSkillTree extends Screen {
@@ -50,12 +49,6 @@ public class NanosuitSkillTree extends Screen {
     private static final int COLOR_LINE_UNLOCKED = 0xFF00FFFF;
     private static final int COLOR_LINE_BORDER = 0xFF000000;
 
-    // How far apart to place each depth-layer horizontally
-    private static final int H_SPACING = 100;
-
-    // How far apart to stack nodes vertically (within one subtree)
-    private static final int V_SPACING = 50;
-
     // UI state
     private int scrollX, scrollY;
     private double lastMouseX, lastMouseY;
@@ -66,12 +59,8 @@ public class NanosuitSkillTree extends Screen {
     private final Map<Skill, SkillNode> nodeMap = new HashMap<>();
     private final List<Connection> connections = new ArrayList<>();
 
-    // We store the computed (x,y) for each skill here after we run
-    // computeSkillCoordinates()
-    private Map<Skill, Point> skillCoords;
-
     public NanosuitSkillTree() {
-        super(Component.translatable("gui."+ CrysisMod.MOD_ID +".skilltree"));
+        super(Component.translatable("gui." + CrysisMod.MOD_ID + ".skilltree"));
     }
 
     @Override
@@ -82,12 +71,9 @@ public class NanosuitSkillTree extends Screen {
         PacketDistributor.sendToServer(new GetAllSkillsPacket(new HashMap<>()));
 
         if (!initialized) {
-            // simplified DAG layout:
-            skillCoords = computeSkillCoordinates();
-
+            // Simply take each Skill’s predetermined (x,y) and create a node
             for (Skill s : Skill.values()) {
-                Point p = skillCoords.get(s);
-                nodeMap.put(s, new SkillNode(s, p.x, p.y));
+                nodeMap.put(s, new SkillNode(s, s.getX(), s.getY()));
             }
             for (Skill child : Skill.values()) {
                 for (Skill parent : child.getParents()) {
@@ -121,146 +107,8 @@ public class NanosuitSkillTree extends Screen {
     }
 
     /**
-     * Computes the (x,y) coordinates for each skill in a clean DAG layout.
-     * Each branch flows horizontally by depth, with branches stacked vertically
-     * to avoid intersections. Skills that merge branches are centered between them.
-     */
-    private Map<Skill, Point> computeSkillCoordinates() {
-        Map<Skill, Point> coords = new HashMap<>();
-
-        // Step 1: Calculate depth (distance from root) for each skill
-        Map<Skill, Integer> depths = calculateDepths();
-
-        // Step 2: Group skills by branch and depth
-        Map<Skill.Branch, Map<Integer, List<Skill>>> branchDepthMap = new HashMap<>();
-        for (Skill.Branch branch : Skill.Branch.values()) {
-            branchDepthMap.put(branch, new HashMap<>());
-        }
-
-        // Group skills by their primary branch and depth
-        for (Skill skill : Skill.values()) {
-            int depth = depths.get(skill);
-            Skill.Branch branch = skill.getBranch();
-
-            branchDepthMap.get(branch)
-                    .computeIfAbsent(depth, k -> new ArrayList<>())
-                    .add(skill);
-        }
-
-        // Step 3: Assign Y positions for each branch (vertical separation)
-        int branchYOffset = 0;
-        Map<Skill.Branch, Integer> branchBaseY = new HashMap<>();
-
-        for (Skill.Branch branch : Skill.Branch.values()) {
-            branchBaseY.put(branch, branchYOffset);
-
-            // Calculate how much vertical space this branch needs
-            int maxSkillsAtDepth = 0;
-            for (List<Skill> skillsAtDepth : branchDepthMap.get(branch).values()) {
-                maxSkillsAtDepth = Math.max(maxSkillsAtDepth, skillsAtDepth.size());
-            }
-
-            // Move to next branch position (with padding)
-            branchYOffset += (int) ((maxSkillsAtDepth * V_SPACING) + V_SPACING * .6f); // Extra padding between branches
-        }
-
-        // Step 4: Position skills within each branch
-        for (Skill.Branch branch : Skill.Branch.values()) {
-            Map<Integer, List<Skill>> depthMap = branchDepthMap.get(branch);
-            int baseY = branchBaseY.get(branch);
-
-            for (Map.Entry<Integer, List<Skill>> entry : depthMap.entrySet()) {
-                int depth = entry.getKey();
-                List<Skill> skillsAtDepth = entry.getValue();
-
-                // X position based on depth
-                int x = depth * H_SPACING;
-
-                // Y positions - center the skills at this depth
-                int totalHeight = (skillsAtDepth.size() - 1) * V_SPACING;
-                int startY = baseY - totalHeight / 2;
-
-                for (int i = 0; i < skillsAtDepth.size(); i++) {
-                    Skill skill = skillsAtDepth.get(i);
-                    int y = startY + (i * V_SPACING);
-                    coords.put(skill, new Point(x, y));
-                }
-            }
-        }
-
-        // Step 5: Handle cross-branch connections (skills that merge branches)
-        // Find skills that have parents from different branches
-        for (Skill skill : Skill.values()) {
-            Skill[] parents = skill.getParents();
-            if (parents.length > 1) {
-                Set<Skill.Branch> parentBranches = new HashSet<>();
-                for (Skill parent : parents) {
-                    parentBranches.add(parent.getBranch());
-                }
-
-                // If this skill connects multiple branches, center it between them
-                if (parentBranches.size() > 1) {
-                    // Calculate average Y position of all parents
-                    int totalY = 0;
-                    for (Skill parent : parents) {
-                        totalY += coords.get(parent).y;
-                    }
-                    int avgY = totalY / parents.length;
-
-                    // Keep the X position based on depth, but center Y between parent branches
-                    Point currentPos = coords.get(skill);
-                    coords.put(skill, new Point(currentPos.x, avgY));
-                }
-            }
-        }
-
-        return coords;
-    }
-
-    /**
-     * Calculate the depth (distance from root nodes) for each skill using BFS.
-     * Root nodes (skills with no parents) have depth 0.
-     */
-    private Map<Skill, Integer> calculateDepths() {
-        Map<Skill, Integer> depths = new HashMap<>();
-        Queue<Skill> queue = new LinkedList<>();
-
-        // Find root nodes (skills with no parents)
-        for (Skill skill : Skill.values()) {
-            if (skill.getParents().length == 0) {
-                depths.put(skill, 0);
-                queue.add(skill);
-            }
-        }
-
-        // BFS to calculate depths
-        while (!queue.isEmpty()) {
-            Skill current = queue.poll();
-            int currentDepth = depths.get(current);
-
-            // Find all children of current skill
-            for (Skill potential : Skill.values()) {
-                for (Skill parent : potential.getParents()) {
-                    if (parent == current) {
-                        // This skill is a child of current
-                        int newDepth = currentDepth + 1;
-                        if (!depths.containsKey(potential) || depths.get(potential) < newDepth) {
-                            depths.put(potential, newDepth);
-                            queue.add(potential);
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-        return depths;
-    }
-
-    /**
      * After all nodes exist, center the bounding box of (x,y) so the skill-tree
-     * sits neatly
-     * in the middle of the GUI.
+     * sits neatly in the middle of the GUI.
      */
     private void computeInitialScroll() {
         int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
@@ -273,7 +121,6 @@ public class NanosuitSkillTree extends Screen {
             maxY = Math.max(maxY, node.y + NODE_SIZE);
         }
 
-        // Center the box [minX..maxX] × [minY..maxY] inside the screen area
         scrollX = (width - (maxX - minX)) / 2 - minX;
         scrollY = (height - TITLE_HEIGHT - FOOTER_HEIGHT - (maxY - minY)) / 2 - minY + TITLE_HEIGHT;
     }
@@ -282,8 +129,10 @@ public class NanosuitSkillTree extends Screen {
     public void render(GuiGraphics gui, int mouseX, int mouseY, float pt) {
         super.render(gui, mouseX, mouseY, pt);
         Player player = Minecraft.getInstance().player;
-        if (player == null)
-            return;
+        if (player == null) return;
+
+        // 1) Background fill
+        gui.fill(0, 0, width, height, COLOR_BG);
 
         // 2) Title bar
         gui.fill(0, 0, width, TITLE_HEIGHT, COLOR_TITLE_BG);
@@ -368,16 +217,16 @@ public class NanosuitSkillTree extends Screen {
         boolean parentUnlocked = SkillData.isUnlocked(c.parent.skill);
         int lineColor = parentUnlocked ? COLOR_LINE_UNLOCKED : COLOR_LINE_LOCKED;
 
-        // Draw a better L-shaped connector with intermediate point
+        // Draw an L-shaped connector with a bending point
         int midX = x2;
         int midY = y1;
 
-        // Draw horizontal segment (parent to bend point)
+        // Horizontal segment (parent → bend)
         gui.hLine(Math.min(x1, midX), Math.max(x1, midX), y1 - 1, COLOR_LINE_BORDER);
         gui.hLine(Math.min(x1, midX), Math.max(x1, midX), y1, lineColor);
         gui.hLine(Math.min(x1, midX), Math.max(x1, midX), y1 + 1, COLOR_LINE_BORDER);
 
-        // Draw vertical segment (bend point to child)
+        // Vertical segment (bend → child)
         gui.vLine(midX - 1, Math.min(midY, y2), Math.max(midY, y2), COLOR_LINE_BORDER);
         gui.vLine(midX, Math.min(midY, y2), Math.max(midY, y2), lineColor);
         gui.vLine(midX + 1, Math.min(midY, y2), Math.max(midY, y2), COLOR_LINE_BORDER);
@@ -403,8 +252,7 @@ public class NanosuitSkillTree extends Screen {
             double ax = mx - scrollX;
             double ay = my - scrollY;
             Player player = Minecraft.getInstance().player;
-            if (player == null)
-                return super.mouseClicked(mx, my, btn);
+            if (player == null) return super.mouseClicked(mx, my, btn);
 
             int pts = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
             for (SkillNode n : nodeMap.values()) {
@@ -478,14 +326,14 @@ public class NanosuitSkillTree extends Screen {
             this.y = y;
             this.icon = ResourceLocation.fromNamespaceAndPath(
                     "crysis",
-                    "textures/gui/" + s.getIconPath() + ".png");
+                    "textures/gui/" + s.getIconPath() + ".png"
+            );
         }
 
         void render(GuiGraphics gui, int mx, int my) {
             boolean hover = isMouseOver(mx, my);
             Player player = Minecraft.getInstance().player;
-            if (player == null)
-                return;
+            if (player == null) return;
 
             boolean unlocked = SkillData.isUnlocked(skill);
             boolean available = SkillData.isAvailable(skill);
@@ -521,7 +369,8 @@ public class NanosuitSkillTree extends Screen {
                     NODE_SIZE - pad * 2,
                     NODE_SIZE - pad * 2,
                     NODE_SIZE - pad * 2,
-                    NODE_SIZE - pad * 2);
+                    NODE_SIZE - pad * 2
+            );
             RenderSystem.disableBlend();
 
             // If locked & not available, dark overlay

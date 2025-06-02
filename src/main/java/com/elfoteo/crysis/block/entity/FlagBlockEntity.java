@@ -176,7 +176,7 @@ public class FlagBlockEntity extends BlockEntity {
             int centerY = center.getY();
             int centerZ = center.getZ();
             if (current == Team.RED) {
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < 12; i++) {
                     int dx = rand.nextInt(3) - 1;
                     int dz = rand.nextInt(3) - 1;
                     int randomY = rand.nextInt(120 - (centerY + 1) + 1) + (centerY + 1);
@@ -186,7 +186,7 @@ public class FlagBlockEntity extends BlockEntity {
                     level.sendParticles(ParticleTypes.FLAME, x, y, z, 1, 0.0, 0.05, 0.0, 0.0);
                 }
             } else if (current == Team.BLUE) {
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < 12; i++) {
                     int dx = rand.nextInt(3) - 1;
                     int dz = rand.nextInt(3) - 1;
                     int randomY = rand.nextInt(120 - (centerY + 1) + 1) + (centerY + 1);
@@ -196,7 +196,7 @@ public class FlagBlockEntity extends BlockEntity {
                     level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y, z, 1, 0.0, 0.05, 0.0, 0.0);
                 }
             } else if (redsAbove > 0 && bluesAbove > 0) {
-                for (int i = 0; i < 2; i++) {
+                for (int i = 0; i < 6; i++) {
                     int dx = rand.nextInt(3) - 1;
                     int dz = rand.nextInt(3) - 1;
                     double x = centerX + 0.5 + dx;
