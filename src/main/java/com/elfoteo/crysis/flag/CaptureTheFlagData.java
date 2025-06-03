@@ -129,4 +129,11 @@ public class CaptureTheFlagData extends SavedData {
                 "ctf_data"
         );
     }
+
+    public void incrementScore(Team owner, int i) {
+        switch (owner){
+            case BLUE -> incrementBlueScore(i);
+            case RED -> incrementRedScore(i);
+        }
+    }
 }
