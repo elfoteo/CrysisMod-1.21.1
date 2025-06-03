@@ -88,6 +88,7 @@ public class CrysisMod {
         // Do not add this line if there are no @SubscribeEvent-annotated functions in
         // this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.register(ScoreboardUpdater.class);
         NeoForge.EVENT_BUS.register(Nanosuit.class);
         NeoForge.EVENT_BUS.register(NanosuitUpgrades.class);
         NeoForge.EVENT_BUS.register(RegenerationSystem.class);
@@ -137,6 +138,7 @@ public class CrysisMod {
     public void onServerStarting(ServerStartingEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getServer().getCommands().getDispatcher();
         ModCommands.register(dispatcher);
+        ScoreboardUpdater.onServerStarting(event);
     }
 
 
