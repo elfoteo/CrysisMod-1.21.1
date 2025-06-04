@@ -1,6 +1,8 @@
 package com.elfoteo.crysis.network.handlers;
 
 import com.elfoteo.crysis.attachments.ModAttachments;
+import com.elfoteo.crysis.flag.CTFData;
+import com.elfoteo.crysis.flag.FlagInfo;
 import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.network.custom.*;
 import com.elfoteo.crysis.network.custom.skills.GetAllSkillsPacket;
@@ -11,6 +13,7 @@ import com.elfoteo.crysis.skill.Skill;
 import com.elfoteo.crysis.skill.SkillState;
 import com.elfoteo.crysis.util.SuitModes;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
@@ -112,5 +115,13 @@ public class ClientPayloadHandler {
             player.setData(ModAttachments.AVAILABLE_SKILL_POINTS, availablePoints);
             player.setData(ModAttachments.MAX_SKILL_POINTS, maxPoints);
         });
+    }
+
+    public static void handleAllFlagsPacket(CTFDataPacket packet, IPayloadContext context) {
+        CTFData.setClientFlags(packet.flags(), packet.redScore(), packet.blueScore());
+        System.out.println("New flag data received from the server");
+        for (FlagInfo flag : packet.flags()){
+            System.out.println(flag);
+        }
     }
 }

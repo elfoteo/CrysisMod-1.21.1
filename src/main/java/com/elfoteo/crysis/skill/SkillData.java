@@ -11,34 +11,17 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.Map;
 
 public class SkillData {
-
-    private static Player getCurrentPlayer() {
-        return Minecraft.getInstance().player;
-    }
-
     public static Map<Skill, SkillState> getAllStates(Player player) {
         return player.getData(ModAttachments.ALL_SKILLS);
-    }
-
-    public static Map<Skill, SkillState> getAllStates() {
-        return getAllStates(getCurrentPlayer());
     }
 
     private static SkillState getState(Player player, Skill skill) {
         return getAllStates(player).get(skill);
     }
 
-    private static SkillState getState(Skill skill) {
-        return getState(getCurrentPlayer(), skill);
-    }
-
     public static boolean isUnlocked(Skill skill, Player player) {
         SkillState state = getState(player, skill);
         return state != null && state.isUnlocked();
-    }
-
-    public static boolean isUnlocked(Skill skill) {
-        return isUnlocked(skill, getCurrentPlayer());
     }
 
     public static boolean isAvailable(Skill skill, Player player) {
@@ -53,10 +36,6 @@ public class SkillData {
             }
         }
         return false;
-    }
-
-    public static boolean isAvailable(Skill skill) {
-        return isAvailable(skill, getCurrentPlayer());
     }
 
     public static boolean unlock(Skill skill, Player player) {
@@ -80,10 +59,6 @@ public class SkillData {
         }
     }
 
-    public static boolean unlock(Skill skill) {
-        return unlock(skill, getCurrentPlayer());
-    }
-
     public static void reset(Player player) {
         Map<Skill, SkillState> states = getAllStates(player);
         for (SkillState state : states.values()) {
@@ -96,15 +71,7 @@ public class SkillData {
         }
     }
 
-    public static void reset() {
-        reset(getCurrentPlayer());
-    }
-
     public static int count(Player player) {
         return (int) getAllStates(player).values().stream().filter(SkillState::isUnlocked).count();
-    }
-
-    public static int count() {
-        return count(getCurrentPlayer());
     }
 }

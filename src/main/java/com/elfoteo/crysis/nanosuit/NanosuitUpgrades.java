@@ -65,26 +65,25 @@ public class NanosuitUpgrades {
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Pre event) {
         Player player = event.getEntity();
-        if (SkillData.isUnlocked(Skill.SPRINT_BOOST, player)) {
-            // Apply sprint boost effect
-            // For example, modify player's movement speed attribute
-            AttributeInstance speedAttr = player.getAttribute(Attributes.MOVEMENT_SPEED);
-            if (speedAttr != null) {
-                double baseSpeed = 0.1;  // Default base speed, tweak as needed or get from attribute
-                double boost = 0.2; // 20% boost
-                double boostedSpeed = baseSpeed * (1 + boost);
 
-                // Apply as modifier if not already applied
-                if (speedAttr.getModifier(boostResourceLocation) == null) {
-                    AttributeModifier sprintBoostModifier = new AttributeModifier(boostResourceLocation, boost, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-                    speedAttr.addTransientModifier(sprintBoostModifier);
+        // Ensure server and client both can apply attribute changes safely
+        if (!player.level().isClientSide) {
+            if (SkillData.isUnlocked(Skill.SPRINT_BOOST, player)) {
+                // Apply sprint boost effect on server side
+                AttributeInstance speedAttr = player.getAttribute(Attributes.MOVEMENT_SPEED);
+                if (speedAttr != null) {
+                    double boost = 0.2; // 20% boost
+                    if (speedAttr.getModifier(boostResourceLocation) == null) {
+                        AttributeModifier sprintBoostModifier = new AttributeModifier(boostResourceLocation, boost, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+                        speedAttr.addTransientModifier(sprintBoostModifier);
+                    }
                 }
-            }
-        } else {
-            // Remove boost modifier if present
-            AttributeInstance speedAttr = player.getAttribute(Attributes.MOVEMENT_SPEED);
-            if (speedAttr != null) {
-                speedAttr.removeModifier(boostResourceLocation);
+            } else {
+                // Remove boost modifier if present
+                AttributeInstance speedAttr = player.getAttribute(Attributes.MOVEMENT_SPEED);
+                if (speedAttr != null) {
+                    speedAttr.removeModifier(boostResourceLocation);
+                }
             }
         }
     }
@@ -111,7 +110,6 @@ public class NanosuitUpgrades {
 
         if (fallDistance < 10f && fallDistance > 3f) {
             event.setCanceled(true); // Cancel the fall damage entirely
-            // Optionally:
             player.level().playSound(null, player.blockPosition(), SoundEvents.HONEY_BLOCK_PLACE, SoundSource.PLAYERS, 0.5f, 1.1f);
         }
     }
@@ -134,7 +132,7 @@ public class NanosuitUpgrades {
     public static void onShockwaveSlam(LivingFallEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
         if (!SkillData.isUnlocked(Skill.SHOCKWAVE_SLAM, player)) return;
-        if (event.getEntity().level().isClientSide) return;
+        if (player.level().isClientSide) return; // Only on server
 
         float fallDistance = event.getDistance();
         if (fallDistance < 10f) return;
@@ -168,7 +166,7 @@ public class NanosuitUpgrades {
                     entity.getX(), entity.getY() + entity.getBbHeight() / 2, entity.getZ(),
                     10, 0.3, 0.3, 0.3, 0.05);
 
-            int delayTicks = Math.max(0, (int) (distance-1));
+            int delayTicks = Math.max(0, (int) (distance - 1));
             Vec3 direction = new Vec3(dx, 0, dz).normalize();
 
             pendingShockwaves.put(entity, new PendingShockwaveEffect(delayTicks, direction, scaledDamage));
@@ -244,6 +242,7 @@ public class NanosuitUpgrades {
             }
         }
     }
+
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onKineticPunchDamage(LivingIncomingDamageEvent event) {
         Entity attacker = event.getSource().getEntity();

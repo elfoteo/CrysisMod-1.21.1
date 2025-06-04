@@ -49,6 +49,12 @@ public class ModPackets {
                 new DirectionalPayloadHandler<>(
                         ClientPayloadHandler::handleSkillPointsPacket,
                         ServerPayloadHandler::handleSkillPointsPacket));
+        registrar.playBidirectional(
+                CTFDataPacket.TYPE,
+                CTFDataPacket.STREAM_CODEC,
+                new DirectionalPayloadHandler<>(
+                        ClientPayloadHandler::handleAllFlagsPacket,
+                        ServerPayloadHandler::handleAllFlagsPacket));
     }
     public static void registerServer(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1"); // Network version
@@ -88,5 +94,11 @@ public class ModPackets {
                 new DirectionalPayloadHandler<>(
                         ModPackets::NoOp,
                         ServerPayloadHandler::handleSkillPointsPacket));
+        registrar.playBidirectional(
+                CTFDataPacket.TYPE,
+                CTFDataPacket.STREAM_CODEC,
+                new DirectionalPayloadHandler<>(
+                        ModPackets::NoOp,
+                        ServerPayloadHandler::handleAllFlagsPacket));
     }
 }

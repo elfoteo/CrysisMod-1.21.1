@@ -1,13 +1,17 @@
 package com.elfoteo.crysis;
 
-import com.elfoteo.crysis.flag.CaptureTheFlagData;
+import com.elfoteo.crysis.flag.CTFData;
+import com.elfoteo.crysis.flag.FlagInfo;
 import com.elfoteo.crysis.flag.Team;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.scores.*;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.ScoreHolder;
+import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -18,163 +22,323 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import java.util.*;
 
 /**
- * ScoreboardUpdater builds a sidebar that looks like this:
+ * Updates a sidebar Objective called "TeamScores" with:
+ *   • Team RED / BLUE scores
+ *   • A little "FLAGS" subheader
+ *   • One line per Flag: [🚩 FlagName          <OWNER>]
  *
- *   [Playing Capture The Flag]
- *    Teams:
- *      Red    5
- *      Blue   12
- *    --- Flags ---
- *      12, 51, 21   BLUE
- *      12, 34, 56   RED
- *      65, 43, 21   NONE
- *
- * To force Minecraft to display in exactly that order, we assign each line a unique "artificial"
- * integer (so higher artificial ? higher on the list). We never call Integer.parseInt(...) on
- * something like "12, 51, 21". Instead, we treat it as plain text.
+ * Relies on CaptureTheFlagData.getFlags() → List<FlagInfo>.
  */
 @EventBusSubscriber(modid = CrysisMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public class ScoreboardUpdater {
     private static int tickCounter = 0;
     private static MinecraftServer server;
 
-    // Called by CrysisMod during server startup
+    // Unicode symbols
+    private static final String TROPHY_UNICODE = "\uD83C\uDFC6 ";
+    private static final String FLAG_UNICODE   = "\uD83D\uDEA9 "; // trailing space
+
+    // “Character‐count” width for centering and team‐lines
+    private static final int MAX_WIDTH = 20;
+
     public static void onServerStarting(ServerStartingEvent event) {
         server = event.getServer();
         Scoreboard scoreboard = server.getScoreboard();
 
-        // Remove any old "GameSidebar" objective
-        if (scoreboard.getObjective("GameSidebar") != null) {
-            scoreboard.removeObjective(scoreboard.getObjective("GameSidebar"));
+        // Remove existing objective if present
+        Objective existing = scoreboard.getObjective("TeamScores");
+        if (existing != null) {
+            scoreboard.removeObjective(existing);
         }
 
-        // Create a new objective named "GameSidebar" with display name "Playing Capture The Flag"
-        Objective sidebar = scoreboard.addObjective(
-                "GameSidebar",
+        // Create a new sidebar objective; title under 20 chars
+        Objective teamScores = scoreboard.addObjective(
+                "TeamScores",
                 ObjectiveCriteria.DUMMY,
-                // Title on top of the sidebar:
-                Component.literal("Playing Capture The Flag").withStyle(ChatFormatting.GOLD),
+                Component.literal(TROPHY_UNICODE + "CRYSIS CTF").withStyle(ChatFormatting.GOLD),
                 RenderType.INTEGER,
                 true,
                 null
         );
 
-        // Add at least one placeholder so the objective isn't empty initially:
-        // (We can add a dummy "Loading..." or just ensure teams exist.)
-        addPlaceholder(scoreboard, "Teams:", sidebar);
-        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, sidebar);
+        // Display on the right‐hand sidebar
+        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, teamScores);
     }
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         tickCounter++;
-        if (tickCounter % 100 == 0) { // every 5 seconds at 20 TPS
+        // Update every 5 ticks
+        if (tickCounter % 5 == 0 && server != null) {
             updateScoreboard(server.getScoreboard());
         }
     }
 
-    /**
-     * Rebuilds the entire sidebar. We build a List<OrderEntry> in the exact visual order
-     * (teams, then separator, then flags), assign each a descending artificial integer,
-     * and write them into the scoreboard. Any old lines not in this set are removed.
-     */
     private static void updateScoreboard(Scoreboard scoreboard) {
         ServerLevel level = server.getLevel(Level.OVERWORLD);
-        CaptureTheFlagData data = CaptureTheFlagData.getOrCreate(level);
+        if (level == null) return;
 
-        Objective sidebar = scoreboard.getObjective("GameSidebar");
-        if (sidebar == null) return;
+        CTFData data = CTFData.getOrCreate(level);
+        Objective teamScores = scoreboard.getObjective("TeamScores");
+        if (teamScores == null) return;
 
-        // 1) Build a single list in the exact order we want:
-        List<OrderEntry> ordered = new ArrayList<>();
+        var ordered = new ArrayList<OrderEntry>();
 
-        // 1.a) "Teams:" heading (no numeric data here)
-        ordered.add(new OrderEntry("Teams:", 0));
+        // ─── “TEAMS” Header ──────────────────────────────────────────────────────────────────
+        String teamsPattern = getAnimatedHeader("TEAMS", tickCounter);
+        String teamsHeaderCentered = centerText(teamsPattern);
+        ordered.add(new OrderEntry(
+                ChatFormatting.GOLD + teamsHeaderCentered + ChatFormatting.RESET,
+                0
+        ));
 
-        // 1.b) Red team line: "Red    <score>" in red text
-        String redLine = ChatFormatting.RED + "Red" + ChatFormatting.RESET + "    " + data.getRedScore();
-        ordered.add(new OrderEntry(redLine, 1));
+        // Team RED line
+        ordered.add(new OrderEntry(formatTeamLine(Team.RED, data.getRedScore()), 1));
+        // Team BLUE line
+        ordered.add(new OrderEntry(formatTeamLine(Team.BLUE, data.getBlueScore()), 2));
 
-        // 1.c) Blue team line: "Blue   <score>" in blue text
-        String blueLine = ChatFormatting.BLUE + "Blue" + ChatFormatting.RESET + "   " + data.getBlueScore();
-        ordered.add(new OrderEntry(blueLine, 2));
+        // ─── “FLAGS” Header ──────────────────────────────────────────────────────────────────
+        String flagsPattern = getAnimatedHeader("FLAGS", tickCounter);
+        String flagsHeaderCentered = centerText(flagsPattern);
+        ordered.add(new OrderEntry(
+                ChatFormatting.AQUA + flagsHeaderCentered + ChatFormatting.RESET,
+                3
+        ));
 
-        // 1.d) Separator: "--- Flags ---"
-        ordered.add(new OrderEntry(ChatFormatting.WHITE + "--- Flags ---" + ChatFormatting.RESET, 3));
+        // ─── One line per FlagInfo ─────────────────────────────────────────────────────────────
+        // (Assumes CaptureTheFlagData now has a public List<FlagInfo> getFlags() method.)
+        List<FlagInfo> allFlags = new ArrayList<>(data.getFlags().stream().toList());
+        // Sort by name (empty name sorts first)
+        allFlags.sort(Comparator.comparing(flag -> {
+            String name = flag.getName();
+            return (name == null || name.isEmpty()) ? "" : name;
+        }));
 
-        // 1.e) Flag lines: each key is something like "12, 51, 21" ? "<coords>    <OWNER>"
-        //     OWNER is in red/blue/gray text. We use insertion?order from data.flagOwners.
-        for (Map.Entry<String, Team> e : data.flagOwners.entrySet()) {
-            String coords = e.getKey();        // e.g. "12, 51, 21"
-            Team owner = e.getValue();
-            String ownerText;
-            if (owner == Team.RED) {
-                ownerText = ChatFormatting.RED + "RED" + ChatFormatting.RESET;
-            } else if (owner == Team.BLUE) {
-                ownerText = ChatFormatting.BLUE + "BLUE" + ChatFormatting.RESET;
-            } else {
-                ownerText = ChatFormatting.GRAY + "NONE" + ChatFormatting.RESET;
+        // Each flag entry: [🚩 <Name>      <OWNER>]  (OWNER right‐aligned)
+        for (FlagInfo info : allFlags) {
+            String name  = info.getName();
+            if (name == null || name.isEmpty()) {
+                // You could choose to skip unnamed flags, or show “(unnamed)”
+                name = "(unnamed)";
             }
-            // Two spaces between coords and owner
-            String flagLine = coords + "    " + ownerText;
-            ordered.add(new OrderEntry(flagLine, 0)); // second parameter is dummy; overwritten below
+            Team owner = info.getOwner();
+            ordered.add(new OrderEntry(formatFlagLine(name, owner), 4 + ordered.size()));
         }
 
-        // 2) Assign each entry a unique artificial score so that the first in `ordered` gets the highest
-        //    value, the next gets one less, etc. Minecraft will then render them in descending order.
+        // ─── Assign descending scores so first entry is at top ─────────────────────────────
         int total = ordered.size();
         for (int i = 0; i < total; i++) {
-            // highest artificial = total, next = total-1, ..., last = 1
-            ordered.get(i).scoreValue = (total - i);
+            ordered.get(i).scoreValue = total - i;
         }
 
-        // 3) Write them into the scoreboard, and collect "desiredNames" to remove stale entries later
+        // ─── Push to Scoreboard, removing any stale lines ───────────────────────────────────
         Set<String> desiredNames = new HashSet<>();
         for (OrderEntry entry : ordered) {
             desiredNames.add(entry.displayText);
-            setArtificialScore(scoreboard, entry.displayText, sidebar, entry.scoreValue);
+            setArtificialScore(scoreboard, entry.displayText, teamScores, entry.scoreValue);
         }
 
-        // 4) Remove any old lines that we no longer want
-        for (PlayerScoreEntry existing : scoreboard.listPlayerScores(sidebar)) {
-            String name = existing.owner();
-            if (!desiredNames.contains(name)) {
-                scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly(name), sidebar);
+        // Remove any existing scoreboard entries not in desiredNames
+        for (var existing : scoreboard.listPlayerScores(teamScores)) {
+            String existingName = existing.owner();
+            if (!desiredNames.contains(existingName)) {
+                scoreboard.resetSinglePlayerScore(ScoreHolder.forNameOnly(existingName), teamScores);
             }
         }
     }
 
-    /**
-     * Ensures the objective isn't empty at startup. We add one placeholder line
-     * (like "Teams:") so that Minecraft doesn?t hide the sidebar entirely.
-     */
-    private static void addPlaceholder(Scoreboard scoreboard, String text, Objective obj) {
-        if (obj == null) return;
-        ScoreHolder holder = ScoreHolder.forNameOnly(text);
-        if (scoreboard.getPlayerScoreInfo(holder, obj) == null) {
-            scoreboard.getOrCreatePlayerScore(holder, obj).set(0);
-        }
-    }
+
+    // ─── “FLAGS” & “TEAMS” Animation Helpers ─────────────────────────────────────────────────
+
+    private static final int ANIM_WIDTH    = 5;              // chars on each side
+    private static final int TOTAL_FRAMES  = ANIM_WIDTH * 3; // full cycle
 
     /**
-     * Sets the "artificial" integer value for a given line so Minecraft sorts it.
+     * Builds an animated header like “===== HEADER =====”,
+     * then centers it in MAX_WIDTH.
      */
-    private static void setArtificialScore(Scoreboard scoreboard, String lineText, Objective obj, int artificialValue) {
+    private static String getAnimatedHeader(String header, int tickCounter) {
+        int cycle = (tickCounter / 5) % TOTAL_FRAMES;
+
+        String left  = wavePattern(cycle, true);
+        String right = wavePattern(cycle, false);
+
+        String animated = left + " " + header + " " + right;
+        return centerText(animated);
+    }
+
+    // Builds the left or right wave (alternating '=' and '-') of length ANIM_WIDTH
+    private static String wavePattern(int cycle, boolean isLeft) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < ANIM_WIDTH; i++) {
+            int wavePos = isLeft
+                    ? cycle - i
+                    : cycle - (ANIM_WIDTH - 1 - i);
+
+            char c = ((wavePos / ANIM_WIDTH) % 2 == 0) ? '=' : '-';
+            builder.append(c);
+        }
+        return builder.toString();
+    }
+
+
+    // ─── SCOREBOARD UTILITIES ─────────────────────────────────────────────────────────────
+
+    /**
+     * Sets an “artificial” score for displayName under the given Objective.
+     */
+    private static void setArtificialScore(Scoreboard scoreboard, String displayName, Objective obj, int artificialValue) {
         if (obj == null) return;
-        ScoreHolder holder = ScoreHolder.forNameOnly(lineText);
+        ScoreHolder holder = ScoreHolder.forNameOnly(displayName);
         scoreboard.getOrCreatePlayerScore(holder, obj).set(artificialValue);
     }
 
     /**
-     * A tiny helper to hold each line of text plus the "artificial" value we'll assign.
+     * Formats a “RED <spaces> 123” or “BLUE <spaces> 45” line,
+     * using plain .length() to count characters.
      */
-    private static class OrderEntry {
-        String displayText; // exactly what appears on-screen
-        int    scoreValue;  // artificial value for sorting
+    private static String formatTeamLine(Team team, int score) {
+        String baseRaw;
+        ChatFormatting color;
+        if (team == Team.RED) {
+            baseRaw = "RED";
+            color   = ChatFormatting.RED;
+        } else if (team == Team.BLUE) {
+            baseRaw = "BLUE";
+            color   = ChatFormatting.BLUE;
+        } else {
+            baseRaw = "NONE";
+            color   = ChatFormatting.GRAY;
+        }
 
-        OrderEntry(String displayText, int dummy) {
+        String scoreStr = String.valueOf(score);
+        int leftLen  = baseRaw.length();
+        int rightLen = scoreStr.length();
+        int spaces   = MAX_WIDTH - leftLen - rightLen;
+        if (spaces < 0) spaces = 0;
+
+        return color
+                + baseRaw
+                + ChatFormatting.RESET
+                + " ".repeat(spaces)
+                + scoreStr;
+    }
+
+    // In the same class (com.elfoteo.crysis.nanosuit.NanosuitUpgrades),
+// remove any "import net.minecraft.client.Minecraft" or "Font" imports.
+// Then paste in this code:
+
+    private static final int MAX_WIDTH_PX = 100; // keep your original pixel?budget
+
+    /**
+     * Exact pixel widths (in px) for each ASCII character (0x20 ? 0x7E),
+     * based on Minecraft?s default font metrics. If a character is not in
+     * this table (e.g. your FLAG_UNICODE), we return a fallback width of 7px.
+     */
+    private static final int getCharWidth(char c) {
+        return switch (c) {
+            // Width = 2
+            case '!', ',', '.', ':', ';', 'i', '|', '¡' -> 2;
+                // Width = 3
+            case '\'', 'l', 'ì', 'í' -> 3;
+                // Width = 4
+            case ' ', 'I', '[', ']', 't', 'ï', '×' -> 4;
+                // Width = 5
+            case '\"', '(', ')', '*', '<', '>', 'f', 'k', '{', '}' -> 5;
+                // Width = 7
+            case '@', '~', '®' -> 7;
+                // All other characters default to width = 6
+            default -> 6;
+        };
+    }
+
+
+    /** Compute full string width (sum of per-char widths). */
+    private static int getStringWidth(String text) {
+        int total = 0;
+        for (char c : text.toCharArray()) {
+            total += getCharWidth(c);
+        }
+        return total;
+    }
+
+    /**
+     * Replaces your old formatFlagLine(...) with a pure-Java, server-safe version.
+     * This uses getStringWidth(...) above instead of Font.width().
+     */
+    private static String formatFlagLine(String flagName, Team owner) {
+        String ownerRaw;
+        ChatFormatting ownerColor;
+        if (owner == Team.RED) {
+            ownerRaw = "RED";
+            ownerColor = ChatFormatting.RED;
+        } else if (owner == Team.BLUE) {
+            ownerRaw = "BLUE";
+            ownerColor = ChatFormatting.BLUE;
+        } else {
+            ownerRaw = "NONE";
+            ownerColor = ChatFormatting.GRAY;
+        }
+
+        // Compose the left part: Unicode flag icon + name
+        String leftRaw = FLAG_UNICODE + flagName;
+
+        // Measure pixel widths using our static lookup:
+        int leftWidthPx  = getStringWidth(leftRaw);
+        int rightWidthPx = getStringWidth(ownerRaw);
+
+        int availablePx = MAX_WIDTH_PX - rightWidthPx;
+        if (leftWidthPx > availablePx) {
+            // Truncate flagName until it fits in (availablePx)
+            // (we always keep at least the FLAG_UNICODE)
+            int reservePx = availablePx - getCharWidth(FLAG_UNICODE.charAt(0));
+            StringBuilder truncated = new StringBuilder();
+            int accu = 0;
+            for (char c : flagName.toCharArray()) {
+                int w = getCharWidth(c);
+                if (accu + w > reservePx) break;
+                truncated.append(c);
+                accu += w;
+            }
+            flagName = truncated.toString();
+            leftRaw = FLAG_UNICODE + flagName;
+            leftWidthPx = getStringWidth(leftRaw);
+            availablePx = MAX_WIDTH_PX - rightWidthPx;
+        }
+
+        int paddingPx = Math.max(0, availablePx - leftWidthPx);
+        // Since one space is 4px, we need paddingPx/4 spaces (rounded down).
+        int numSpaces = paddingPx / getCharWidth(' ');
+        String spaces = " ".repeat(numSpaces);
+
+        return ChatFormatting.GREEN
+                + leftRaw
+                + ChatFormatting.RESET
+                + spaces
+                + ownerColor
+                + ownerRaw
+                + ChatFormatting.RESET;
+    }
+
+    /**
+     * Centers a “plain‐text” string in MAX_WIDTH (character count).
+     * If s.length() >= MAX_WIDTH, it simply truncates to MAX_WIDTH.
+     */
+    private static String centerText(String s) {
+        int len = s.length();
+        if (len >= MAX_WIDTH) {
+            return s.substring(0, MAX_WIDTH);
+        }
+        int padding = (MAX_WIDTH - len) / 2;
+        return " ".repeat(padding) + s;
+    }
+
+    private static class OrderEntry {
+        String displayText;
+        int scoreValue;
+        OrderEntry(String displayText, int idx) {
             this.displayText = displayText;
-            this.scoreValue = dummy; // overwritten once we know the total count
+            this.scoreValue = idx;
         }
     }
 }

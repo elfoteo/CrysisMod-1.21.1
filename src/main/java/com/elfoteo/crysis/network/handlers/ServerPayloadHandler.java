@@ -1,6 +1,7 @@
 package com.elfoteo.crysis.network.handlers;
 
 import com.elfoteo.crysis.attachments.ModAttachments;
+import com.elfoteo.crysis.flag.CTFData;
 import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.network.custom.*;
 import com.elfoteo.crysis.network.custom.skills.GetAllSkillsPacket;
@@ -11,6 +12,7 @@ import com.elfoteo.crysis.skill.Skill;
 import com.elfoteo.crysis.skill.SkillState;
 import com.elfoteo.crysis.util.SuitModes;
 import com.elfoteo.crysis.util.SuitUtils;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -158,5 +160,18 @@ public class ServerPayloadHandler {
                     player.getData(ModAttachments.MAX_SKILL_POINTS)
             ));
         });
+    }
+
+    public static void handleAllFlagsPacket(CTFDataPacket ignored, IPayloadContext context) {
+        // If we receive this packet from the client it means that he wants us to give him the CTFData that we have
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        if (!(context.player().level() instanceof ServerLevel level)) return;
+        CTFData data = CTFData.getOrCreate(level);
+        CTFDataPacket packet = new CTFDataPacket(
+                data.getFlags().stream().toList(),
+                data.getBlueScore(),
+                data.getRedScore()
+        );
+        PacketDistributor.sendToPlayer(player, packet);
     }
 }

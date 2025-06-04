@@ -1,12 +1,16 @@
 package com.elfoteo.crysis.attachments;
 
 import com.elfoteo.crysis.CrysisMod;
+import com.elfoteo.crysis.flag.CTFData;
 import com.elfoteo.crysis.network.custom.ArmorInfoPacket;
 import com.elfoteo.crysis.network.custom.skills.GetAllSkillsPacket;
 import com.elfoteo.crysis.network.custom.skills.SkillPointsPacket;
 import com.elfoteo.crysis.skill.Skill;
 import com.elfoteo.crysis.skill.SkillState;
 import com.elfoteo.crysis.util.SuitModes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
@@ -104,5 +108,17 @@ public class AttachmentSyncing {
         PacketDistributor.sendToServer(new ArmorInfoPacket(0, 0, 0, 0));
         PacketDistributor.sendToServer(new SkillPointsPacket(0, 0));
         PacketDistributor.sendToServer(new GetAllSkillsPacket(new HashMap<>())); // Now using SkillState
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        // This runs server-side when a player logs into the world
+        Player genericPlayer = event.getEntity();
+
+        // Example: get server level and run logic
+        if (genericPlayer instanceof ServerPlayer player && player.level() instanceof ServerLevel level) {
+            // Your server-side logic here
+            CTFData.getOrCreate(level).sendUpdateToClient(player);
+        }
     }
 }

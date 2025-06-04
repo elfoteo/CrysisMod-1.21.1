@@ -1,7 +1,8 @@
 package com.elfoteo.crysis.block.entity;
 
-import com.elfoteo.crysis.flag.CaptureTheFlagData;
+import com.elfoteo.crysis.flag.CTFData;
 import com.elfoteo.crysis.flag.Team;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -27,7 +28,6 @@ import java.util.Map;
 import java.util.Random;
 
 public class FlagBlockEntity extends BlockEntity {
-    private Team owner = Team.NONE;
     private int scoreCooldown = 0;
     private int redWoolCount = 0;
     private int blueWoolCount = 0;
@@ -39,6 +39,36 @@ public class FlagBlockEntity extends BlockEntity {
     private static final double RADIUS_SQUARED = RADIUS * RADIUS;
 
     private final List<BlockPos> shuffledOffsets;
+
+    public void reset(){
+        scoreCooldown = 0;
+        redWoolCount = 0;
+        blueWoolCount = 0;
+        redConcreteCount = 0;
+        blueConcreteCount = 0;
+
+        // Clear any wool/concrete around the flag (radius = 6, excluding the flag block itself)
+        for (int dx = -6; dx <= 6; dx++) {
+            for (int dz = -6; dz <= 6; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                if (dx * dx + dz * dz <= 36) {
+                    BlockPos targetPos = getBlockPos().offset(dx, 0, dz);
+                    Block surroundingBlock = level.getBlockState(targetPos).getBlock();
+
+                    boolean isFlagRelatedBlock =
+                            surroundingBlock == Blocks.LIGHT_GRAY_WOOL ||
+                                    surroundingBlock == Blocks.RED_WOOL ||
+                                    surroundingBlock == Blocks.BLUE_WOOL ||
+                                    surroundingBlock == Blocks.RED_CONCRETE ||
+                                    surroundingBlock == Blocks.BLUE_CONCRETE;
+
+                    if (isFlagRelatedBlock) {
+                        level.setBlock(targetPos, Blocks.LIGHT_GRAY_WOOL.defaultBlockState(), 3);
+                    }
+                }
+            }
+        }
+    }
 
     public FlagBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.FLAG_BE.get(), pos, state);
@@ -120,17 +150,19 @@ public class FlagBlockEntity extends BlockEntity {
 
     private Map<Team, Integer> countPlayers(ServerLevel level) {
         Map<Team, Integer> counts = new HashMap<>(Map.of(Team.RED, 0, Team.BLUE, 0));
-        AABB box = new AABB(worldPosition.getX() - RADIUS, worldPosition.getY() + 1, worldPosition.getZ() - RADIUS,
-                worldPosition.getX() + RADIUS + 1, level.getMaxBuildHeight(), worldPosition.getZ() + RADIUS + 1);
+        AABB box = new AABB(
+                worldPosition.getX() - RADIUS, worldPosition.getY() + 1, worldPosition.getZ() - RADIUS,
+                worldPosition.getX() + RADIUS + 1, level.getMaxBuildHeight(), worldPosition.getZ() + RADIUS + 1
+        );
         for (Player p : level.getEntitiesOfClass(Player.class, box)) {
             Vec3 pos = p.position();
             if (pos.y <= worldPosition.getY()) continue;
             double dx = pos.x - (worldPosition.getX() + 0.5);
             double dz = pos.z - (worldPosition.getZ() + 0.5);
             if (dx * dx + dz * dz <= RADIUS_SQUARED && p.getTeam() != null) {
-                String team = p.getTeam().getName().toLowerCase();
-                if (team.equals("red")) counts.merge(Team.RED, 1, Integer::sum);
-                else if (team.equals("blue")) counts.merge(Team.BLUE, 1, Integer::sum);
+                String teamName = p.getTeam().getName().toLowerCase();
+                if (teamName.equals("red")) counts.merge(Team.RED, 1, Integer::sum);
+                else if (teamName.equals("blue")) counts.merge(Team.BLUE, 1, Integer::sum);
             }
         }
         return counts;
@@ -139,7 +171,9 @@ public class FlagBlockEntity extends BlockEntity {
     private Team determineCapturingTeam(Map<Team, Integer> counts) {
         int red = counts.get(Team.RED);
         int blue = counts.get(Team.BLUE);
-        return (red > 0 && blue == 0) ? Team.RED : (blue > 0 && red == 0) ? Team.BLUE : Team.NONE;
+        return (red > 0 && blue == 0) ? Team.RED
+                : (blue > 0 && red == 0) ? Team.BLUE
+                : Team.NONE;
     }
 
     private Team otherTeam(Team team) {
@@ -149,7 +183,8 @@ public class FlagBlockEntity extends BlockEntity {
     private void handleCapture(ServerLevel level, Team capturingTeam) {
         if (capturingTeam == Team.NONE) return;
 
-        if (capturingTeam == owner) {
+        Team currentOwner = CTFData.getOrCreate(level).getFlagOwner(worldPosition);
+        if (capturingTeam == currentOwner) {
             hardenWool(level, capturingTeam);
         } else {
             Team other = otherTeam(capturingTeam);
@@ -163,8 +198,8 @@ public class FlagBlockEntity extends BlockEntity {
                 BlockState bs = level.getBlockState(pos);
                 if (bs.is(otherConcrete)) {
                     level.setBlock(pos, otherWool.defaultBlockState(), 3);
-                    adjustCounts(bs, -1);  // Decrease otherConcrete count
-                    adjustCounts(otherWool.defaultBlockState(), 1);  // Increase otherWool count
+                    adjustCounts(bs, -1);
+                    adjustCounts(otherWool.defaultBlockState(), 1);
                     return;  // Only convert one block per tick
                 }
             }
@@ -175,7 +210,7 @@ public class FlagBlockEntity extends BlockEntity {
                 BlockState bs = level.getBlockState(pos);
                 if (bs.is(otherWool)) {
                     level.setBlock(pos, Blocks.LIGHT_GRAY_WOOL.defaultBlockState(), 3);
-                    adjustCounts(bs, -1);  // Decrease otherWool count
+                    adjustCounts(bs, -1);
                     return;
                 }
             }
@@ -186,7 +221,7 @@ public class FlagBlockEntity extends BlockEntity {
                 BlockState bs = level.getBlockState(pos);
                 if (bs.is(Blocks.LIGHT_GRAY_WOOL)) {
                     level.setBlock(pos, capturingWool.defaultBlockState(), 3);
-                    adjustCounts(capturingWool.defaultBlockState(), 1);  // Increase capturingWool count
+                    adjustCounts(capturingWool.defaultBlockState(), 1);
                     return;
                 }
             }
@@ -211,39 +246,32 @@ public class FlagBlockEntity extends BlockEntity {
         int total = shuffledOffsets.size();
         int redTotal = redWoolCount + redConcreteCount;
         int blueTotal = blueWoolCount + blueConcreteCount;
-        Team newOwner = (redTotal == total) ? Team.RED : (blueTotal == total) ? Team.BLUE : Team.NONE;
-        setOwner(level, newOwner);
-    }
+        Team newOwner = (redTotal == total) ? Team.RED
+                : (blueTotal == total) ? Team.BLUE
+                : Team.NONE;
 
-    private void handleScoring(ServerLevel level) {
-        if (owner != Team.NONE && ++scoreCooldown >= SCORE_INTERVAL) {
-            CaptureTheFlagData.getOrCreate(level).incrementScore(owner, 1);
-            scoreCooldown = 0;
-        }
-    }
-
-    private void setOwner(ServerLevel level, Team newOwner) {
-        if (owner != newOwner) {
-            owner = newOwner;
+        Team currentOwner = CTFData.getOrCreate(level).getFlagOwner(worldPosition);
+        if (currentOwner != newOwner) {
+            // Reset cooldown and persist the new owner
             scoreCooldown = 0;
             setChanged();
-            CaptureTheFlagData.getOrCreate(level).setFlagOwner(worldPosition, newOwner);
+            CTFData.getOrCreate(level).setFlagOwner(worldPosition, newOwner);
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
         }
     }
 
-    public Team getOwner() {
-        return owner;
-    }
-
-    public Map<Team, Integer> getPlayersInArea() {
-        return level instanceof ServerLevel serverLevel ? countPlayers(serverLevel) : new HashMap<>(Map.of(Team.RED, 0, Team.BLUE, 0));
+    private void handleScoring(ServerLevel level) {
+        Team owner = CTFData.getOrCreate(level).getFlagOwner(worldPosition);
+        if (owner != Team.NONE && ++scoreCooldown >= SCORE_INTERVAL) {
+            CTFData.getOrCreate(level).incrementScore(owner, 1);
+            scoreCooldown = 0;
+        }
     }
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
-        tag.putString("owner", owner.name());
+        // No longer saving `owner`; only persist counts and cooldown
         tag.putInt("scoreCooldown", scoreCooldown);
         tag.putInt("redWoolCount", redWoolCount);
         tag.putInt("blueWoolCount", blueWoolCount);
@@ -254,12 +282,12 @@ public class FlagBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        owner = tag.contains("owner") ? Team.valueOf(tag.getString("owner")) : Team.NONE;
         scoreCooldown = tag.getInt("scoreCooldown");
         redWoolCount = tag.getInt("redWoolCount");
         blueWoolCount = tag.getInt("blueWoolCount");
         redConcreteCount = tag.getInt("redConcreteCount");
         blueConcreteCount = tag.getInt("blueConcreteCount");
+        // Owner is not loaded here; fetched on demand
     }
 
     @Nullable
@@ -271,8 +299,19 @@ public class FlagBlockEntity extends BlockEntity {
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = super.getUpdateTag(registries);
-        tag.putString("owner", owner.name());
+        // No owner in tag; clients can request it from CaptureTheFlagData if needed
         tag.putInt("scoreCooldown", scoreCooldown);
         return tag;
+    }
+
+    public Team getOwner() {
+        return CTFData.getOrCreateClient().getFlagOwner(worldPosition);
+    }
+
+    public Map<Team, Integer> getPlayersInArea() {
+        if (level instanceof ServerLevel serverLevel) {
+            return countPlayers(serverLevel);
+        }
+        return new HashMap<>(Map.of(Team.RED, 0, Team.BLUE, 0));
     }
 }

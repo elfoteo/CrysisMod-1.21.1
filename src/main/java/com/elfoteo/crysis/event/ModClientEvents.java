@@ -1,7 +1,6 @@
 package com.elfoteo.crysis.event;
 
 import com.elfoteo.crysis.CrysisMod;
-import com.elfoteo.crysis.flag.CaptureTheFlagData;
 import com.elfoteo.crysis.gui.NanosuitSkillTree;
 import com.elfoteo.crysis.gui.NanosuitVisorInsights;
 import com.elfoteo.crysis.gui.util.EntityDisposition;
@@ -13,30 +12,18 @@ import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.client.Camera;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.scores.DisplaySlot;
-import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.Scoreboard;
-import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import org.joml.Matrix4f;
-
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 @EventBusSubscriber(modid = CrysisMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public class ModClientEvents {

@@ -131,21 +131,15 @@ public class NanosuitSkillTree extends Screen {
         Player player = Minecraft.getInstance().player;
         if (player == null) return;
 
-        // 1) Background fill
-        gui.fill(0, 0, width, height, COLOR_BG);
-
-        // 2) Title bar
         gui.fill(0, 0, width, TITLE_HEIGHT, COLOR_TITLE_BG);
         gui.drawCenteredString(font, title, width / 2, 7, 0xFFFFFFFF);
 
-        // 3) Footer with available points
-        int availablePoints = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
+                int availablePoints = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
         gui.fill(0, height - FOOTER_HEIGHT, width, height, COLOR_FOOTER_BG);
         String ptsText = "Available Points: " + availablePoints;
         gui.drawString(font, ptsText, width / 2 - font.width(ptsText) / 2, height - 28, 0xFFFFFF);
 
-        // 4) Find hovered node
-        SkillNode hoveredNode = null;
+                SkillNode hoveredNode = null;
         for (SkillNode n : nodeMap.values()) {
             if (n.isMouseOver(mouseX - scrollX, mouseY - scrollY)) {
                 hoveredNode = n;
@@ -153,8 +147,7 @@ public class NanosuitSkillTree extends Screen {
             }
         }
 
-        // 5) Scissor region for the tree (exclude title/footer)
-        int guiLeft = 0;
+                int guiLeft = 0;
         int guiTop = TITLE_HEIGHT;
         int guiWidth = width;
         int guiHeight = height - TITLE_HEIGHT - FOOTER_HEIGHT;
@@ -168,8 +161,7 @@ public class NanosuitSkillTree extends Screen {
         int scissorH = (int) (guiHeight * scaleFactor);
         RenderSystem.enableScissor(scissorX, scissorY, scissorW, scissorH);
 
-        // 6) Translate and draw connections then nodes
-        gui.pose().pushPose();
+                gui.pose().pushPose();
         gui.pose().translate(scrollX, scrollY, 0);
 
         for (Connection c : connections) {
@@ -181,14 +173,13 @@ public class NanosuitSkillTree extends Screen {
         gui.pose().popPose();
         RenderSystem.disableScissor();
 
-        // 7) Tooltip for hovered node
-        if (hoveredNode != null) {
+                if (hoveredNode != null) {
             var tip = new ArrayList<Component>();
             tip.add(Component.literal(hoveredNode.skill.getTitle()).withStyle(s -> s.withBold(true)));
             tip.add(Component.literal(hoveredNode.skill.getDescription()));
 
-            boolean unlocked = SkillData.isUnlocked(hoveredNode.skill);
-            boolean available = SkillData.isAvailable(hoveredNode.skill);
+            boolean unlocked = SkillData.isUnlocked(hoveredNode.skill, Minecraft.getInstance().player);
+            boolean available = SkillData.isAvailable(hoveredNode.skill, Minecraft.getInstance().player);
 
             if (unlocked) {
                 tip.add(Component.literal("Status: Unlocked").withStyle(s -> s.withColor(0x00FF00)));
@@ -214,7 +205,7 @@ public class NanosuitSkillTree extends Screen {
         int y2 = c.child.y + NODE_SIZE / 2;
 
         // Color depends on whether the parent skill is unlocked
-        boolean parentUnlocked = SkillData.isUnlocked(c.parent.skill);
+        boolean parentUnlocked = SkillData.isUnlocked(c.parent.skill, Minecraft.getInstance().player);
         int lineColor = parentUnlocked ? COLOR_LINE_UNLOCKED : COLOR_LINE_LOCKED;
 
         // Draw an L-shaped connector with a bending point
@@ -257,8 +248,8 @@ public class NanosuitSkillTree extends Screen {
             int pts = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
             for (SkillNode n : nodeMap.values()) {
                 if (n.isMouseOver(ax, ay)) {
-                    boolean unlocked = SkillData.isUnlocked(n.skill);
-                    boolean available = SkillData.isAvailable(n.skill);
+                    boolean unlocked = SkillData.isUnlocked(n.skill, Minecraft.getInstance().player);
+                    boolean available = SkillData.isAvailable(n.skill, Minecraft.getInstance().player);
                     if (!unlocked && available && pts > 0) {
                         PacketDistributor
                                 .sendToServer(new UnlockSkillPacket(n.skill, UnlockSkillPacket.Success.SUCCESS));
@@ -335,8 +326,8 @@ public class NanosuitSkillTree extends Screen {
             Player player = Minecraft.getInstance().player;
             if (player == null) return;
 
-            boolean unlocked = SkillData.isUnlocked(skill);
-            boolean available = SkillData.isAvailable(skill);
+            boolean unlocked = SkillData.isUnlocked(skill, Minecraft.getInstance().player);
+            boolean available = SkillData.isAvailable(skill, Minecraft.getInstance().player);
             int pts = player.getData(ModAttachments.AVAILABLE_SKILL_POINTS);
 
             // Choose background color
