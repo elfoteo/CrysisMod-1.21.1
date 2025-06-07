@@ -68,6 +68,8 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.CHAIR.get());
                         output.accept(ModBlocks.PEDESTAL.get());
                         output.accept(ModBlocks.GROWTH_CHAMBER.get());
+                        output.accept(ModBlocks.CREATIVE_VENDING_MACHINE.get());
+                        output.accept(ModBlocks.FLAG.get());
                     }).build());
 
     public static void register(IEventBus eventBus) {
