@@ -38,33 +38,18 @@ public class ModItems {
     public static final DeferredItem<SwordItem> BISMUTH_SWORD = ITEMS.register("bismuth_sword",
             () -> new SwordItem(ModToolTiers.BISMUTH, new Item.Properties()
                     .attributes(SwordItem.createAttributes(ModToolTiers.BISMUTH, 5, -2.4f))));
-    public static final DeferredItem<PickaxeItem> BISMUTH_PICKAXE = ITEMS.register("bismuth_pickaxe",
-            () -> new PickaxeItem(ModToolTiers.BISMUTH, new Item.Properties()
-                    .attributes(PickaxeItem.createAttributes(ModToolTiers.BISMUTH, 1.0F, -2.8f))));
-    public static final DeferredItem<ShovelItem> BISMUTH_SHOVEL = ITEMS.register("bismuth_shovel",
-            () -> new ShovelItem(ModToolTiers.BISMUTH, new Item.Properties()
-                    .attributes(ShovelItem.createAttributes(ModToolTiers.BISMUTH, 1.5F, -3.0f))));
-    public static final DeferredItem<AxeItem> BISMUTH_AXE = ITEMS.register("bismuth_axe",
-            () -> new AxeItem(ModToolTiers.BISMUTH, new Item.Properties()
-                    .attributes(AxeItem.createAttributes(ModToolTiers.BISMUTH, 6.0F, -3.2f))));
-    public static final DeferredItem<HoeItem> BISMUTH_HOE = ITEMS.register("bismuth_hoe",
-            () -> new HoeItem(ModToolTiers.BISMUTH, new Item.Properties()
-                    .attributes(HoeItem.createAttributes(ModToolTiers.BISMUTH, 0F, -3.0f))));
-    public static final DeferredItem<HammerItem> BISMUTH_HAMMER = ITEMS.register("bismuth_hammer",
-            () -> new HammerItem(ModToolTiers.BISMUTH, new Item.Properties()
-                    .attributes(PickaxeItem.createAttributes(ModToolTiers.BISMUTH, 7F, -3.5f))));
     public static final DeferredItem<ArmorItem> NANOSUIT_HELMET = ITEMS.register("nanosuit_helmet",
             () -> new NanosuitArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.HELMET,
-                    new Item.Properties()));
+                    new Item.Properties().stacksTo(1)));
     public static final DeferredItem<ArmorItem> NANOSUIT_CHESTPLATE = ITEMS.register("nanosuit_chestplate",
             () -> new ArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.CHESTPLATE,
-                    new Item.Properties()));
+                    new Item.Properties().stacksTo(1)));
     public static final DeferredItem<ArmorItem> NANOSUIT_LEGGINGS = ITEMS.register("nanosuit_leggings",
             () -> new ArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.LEGGINGS,
-                    new Item.Properties()));
+                    new Item.Properties().stacksTo(1)));
     public static final DeferredItem<ArmorItem> NANOSUIT_BOOTS = ITEMS.register("nanosuit_boots",
             () -> new ArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, ArmorItem.Type.BOOTS,
-                    new Item.Properties()));
+                    new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> BISMUTH_HORSE_ARMOR = ITEMS.register("bismuth_horse_armor",
             () -> new AnimalArmorItem(ModArmorMaterials.NANOSUIT_COMPOSITE, AnimalArmorItem.BodyType.EQUESTRIAN,
                     false, new Item.Properties().stacksTo(1)));
