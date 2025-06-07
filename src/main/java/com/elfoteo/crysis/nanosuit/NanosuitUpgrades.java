@@ -5,6 +5,7 @@ import com.elfoteo.crysis.attachments.ModAttachments;
 import com.elfoteo.crysis.skill.Skill;
 import com.elfoteo.crysis.skill.SkillData;
 import com.elfoteo.crysis.util.SuitModes;
+import com.elfoteo.crysis.util.SuitUtils;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
@@ -39,7 +40,6 @@ public class NanosuitUpgrades {
 
     @SubscribeEvent()
     public static void onLivingDamage(LivingIncomingDamageEvent event) {
-        LivingEntity target = event.getEntity();
         DamageSource source = event.getSource();
         Entity attacker = source.getEntity();
 
@@ -65,6 +65,7 @@ public class NanosuitUpgrades {
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Pre event) {
         Player player = event.getEntity();
+        if (player.getData(ModAttachments.SUIT_MODE) == SuitModes.NOT_EQUIPPED.get()) return;
 
         // Ensure server and client both can apply attribute changes safely
         if (!player.level().isClientSide) {
@@ -91,7 +92,7 @@ public class NanosuitUpgrades {
     @SubscribeEvent
     public static void armorUpUpgrade(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
-
+        if (player.getData(ModAttachments.SUIT_MODE) != SuitModes.ARMOR.get()) return;
         if (SkillData.isUnlocked(Skill.ARMOR_UP, player)) {
             float originalDamage = event.getAmount();
             float reducedDamage = originalDamage * 0.9f; // 10% flat resistance
@@ -102,7 +103,7 @@ public class NanosuitUpgrades {
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onShockAbsorption(LivingFallEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
-
+        if (player.getData(ModAttachments.SUIT_MODE) == SuitModes.NOT_EQUIPPED.get()) return;
         if (!SkillData.isUnlocked(Skill.SHOCK_ABSORPTION, player)) return;
 
         // Estimate the fall distance based on incoming damage
@@ -131,6 +132,7 @@ public class NanosuitUpgrades {
     @SubscribeEvent
     public static void onShockwaveSlam(LivingFallEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
+        if (player.getData(ModAttachments.SUIT_MODE) == SuitModes.NOT_EQUIPPED.get()) return;
         if (!SkillData.isUnlocked(Skill.SHOCKWAVE_SLAM, player)) return;
         if (player.level().isClientSide) return; // Only on server
 

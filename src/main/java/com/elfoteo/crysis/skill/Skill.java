@@ -143,7 +143,7 @@ public enum Skill {
             100, 80,
             "nanosuit/armor_up",
             "Armor Up",
-            "Grants an extra 10% flat damage resistance.",
+            "Grants an extra 10% flat damage resistance in armor mode.",
             new Skill[]{NANOSUIT}),
     SPRINT_BOOST(
             Branch.NANOSUIT,
