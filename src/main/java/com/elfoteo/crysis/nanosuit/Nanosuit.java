@@ -110,6 +110,9 @@ public class Nanosuit {
                 }
             }
         } else if (mode == SuitModes.VISOR.get()) {
+            if (previousClientMode == SuitModes.VISOR.get()) {
+                previousClientMode = SuitModes.ARMOR.get();
+            }
             target = previousClientMode;
         } else {
             // ─── CLOAK logic ───────────────────────────────────────────────────────
