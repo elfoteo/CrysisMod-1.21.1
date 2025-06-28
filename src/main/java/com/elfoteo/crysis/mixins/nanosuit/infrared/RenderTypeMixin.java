@@ -28,6 +28,20 @@ public abstract class RenderTypeMixin {
         cir.setReturnValue(InfraredShader.infraredEntityGeneric(location));
     }
 
+    @Inject(method = "entityCutout", at=@At("HEAD"), cancellable = true)
+    private static void entityCutout(ResourceLocation location, CallbackInfoReturnable<RenderType> cir) {
+        if (InfraredShader.INFRARED_RENDER_TYPE_ENTITY_GENERIC == null) return;
+        if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getData(ModAttachments.SUIT_MODE) != SuitModes.VISOR.get()) return;
+        cir.setReturnValue(InfraredShader.infraredEntityGeneric(location));
+    }
+
+    @Inject(method = "entityCutoutNoCull*", at=@At("HEAD"), cancellable = true)
+    private static void entityCutoutNoCull(ResourceLocation location, CallbackInfoReturnable<RenderType> cir) {
+        if (InfraredShader.INFRARED_ENTITY_CUTOUT_NO_CULL == null) return;
+        if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getData(ModAttachments.SUIT_MODE) != SuitModes.VISOR.get()) return;
+        cir.setReturnValue(InfraredShader.infraredEntityCutoutNoCull(location));
+    }
+
     @Inject(method = "beaconBeam", at=@At("HEAD"), cancellable = true)
     private static void entitySolid(ResourceLocation location, boolean colorFlag, CallbackInfoReturnable<RenderType> cir) {
         if (InfraredShader.INFRARED_BEACON_BEAM == null) return;
