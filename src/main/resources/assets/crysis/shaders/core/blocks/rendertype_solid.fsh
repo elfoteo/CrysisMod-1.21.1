@@ -27,19 +27,32 @@ in vec3   worldPosition;
 out vec4  fragColor;
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Quantized infrared-style heat color ramp with 16 discrete levels
+// Quantized infrared‐style heat color ramp with 16 discrete levels
 vec3 heatColor(float t) {
     t = clamp(t, 0.0, 1.0);
-
     if (t < 0.33) {
-        // Cold to warm (Blue to Red) - levels 0-5
-        return mix(vec3(0.0, 0.0, 0.23), vec3(1.0, 0.0, 0.0), t / 0.33);
+        // Cold to warm (Blue → Red)
+        return mix(vec3(0.0, 0.0, 0.23),
+        vec3(1.0, 0.0, 0.0),
+        t / 0.33);
     } else {
-        // Red to hot white - levels 6-15
-        return mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), (t - 0.33) / 0.67);
+        // Red → White
+        return mix(vec3(1.0, 0.0, 0.0),
+        vec3(1.0, 1.0, 1.0),
+        (t - 0.33) / 0.67);
     }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Simple static hash noise based on block‐aligned position
+float hashNoise(vec3 p) {
+    p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Compute the highest “heat” from all entities at a given relative pos
 float computeEntityHeatAt(vec3 pos) {
     float bestHeat = 0.0;
     for (int i = 0; i < EntityCount; i++) {
@@ -57,7 +70,7 @@ float computeEntityHeatAt(vec3 pos) {
         float dy = diff.y / height;
         float dz = diff.z / width;
         float falloff = width + height;
-        float dist2 = dx * dx + dy * dy + dz * dz;
+        float dist2 = dx*dx + dy*dy + dz*dz;
         float t = clamp(1.0 - dist2 * falloff, 0.0, 1.0);
 
         bestHeat = max(bestHeat, t);
@@ -66,23 +79,19 @@ float computeEntityHeatAt(vec3 pos) {
 }
 
 void main() {
-    // ─── 1) Compute base heat ───────────────────────────────────────────────
     vec3 absPos     = worldPosition + CameraPos;
-    vec3 snappedAbs = floor(absPos);  // No longer multiply by 16, just floor to block coords
+    vec3 snappedAbs = floor(absPos);
     vec3 snappedRel = snappedAbs - CameraPos;
 
     float lightHeat  = clamp((blockLight - .8) * 0.8 , 0.0, 1.0);
     float entityHeat = computeEntityHeatAt(snappedRel);
     float combined   = max(lightHeat, entityHeat);
 
-    // ─── 2) Block position with +64 offset to avoid negatives ───────────────────
     ivec3 blockPos = ivec3(
-    floor(absPos.x + 64.0),  // Add 64 to avoid negative coordinates
-    floor(absPos.y + 64.0),  // Add 64 to avoid negative coordinates
-    floor(absPos.z + 64.0)   // Add 64 to avoid negative coordinates
+        floor(absPos.x + 64.0),  // Add 64 to avoid negative coordinates
+        floor(absPos.y + 64.0),  // Add 64 to avoid negative coordinates
+        floor(absPos.z + 64.0)   // Add 64 to avoid negative coordinates
     );
-
-    // ─── 3) Subtract Java‐side world offset ──────────────────────────────────
     blockPos.x -= u_worldOffsetX;
     blockPos.y -= u_worldOffsetY;
     blockPos.z -= u_worldOffsetZ;
@@ -96,7 +105,6 @@ void main() {
         return;
     }
 
-    // ─── 4) GPU Trail Heat Fade + Accumulation in 3D ────────────────────────
     // Read the single red channel containing the heat value (0.0-1.0) from 3D texture
     float oldHeat = texelFetch(TrailSampler, blockPos, 0).r;
 
@@ -104,24 +112,19 @@ void main() {
     float decayRate = 0.2; // Controls how fast the exponential decay is
     float fadedHeat = oldHeat * exp(-decayRate * u_deltaTime);
 
-    // Apply a minimum threshold to ensure it eventually reaches zero
-    // This prevents floating point precision issues from keeping tiny values alive
     const float minThreshold = 0.001;
     if (fadedHeat < minThreshold) {
         fadedHeat = 0.0;
     }
+    float newHeat = max(fadedHeat, combined);
 
-    float newHeat = max(fadedHeat, combined); // Accumulate heat
+    imageStore(u_TrailRW, blockPos, vec4(newHeat,0.0,0.0,0.0));
 
-    // Store only the heat value in the red channel of the 3D texture
-    imageStore(u_TrailRW, blockPos, vec4(newHeat, 0.0, 0.0, 0.0));
-
-    // ─── 5) Final shaded output with fog ─────────────────────────────────────
-    // Convert the heat value back to color for rendering
     vec3 heatRGB = heatColor(newHeat);
-    fragColor = linear_fog(
-    vec4(heatRGB, 1.0),
+    heatRGB += (hashNoise(snappedAbs) - 0.5) * 0.02;
+    heatRGB = clamp(heatRGB, 0.0, 1.0);
+
+    fragColor = linear_fog(vec4(heatRGB,1.0),
     vertexDistance,
-    FogStart, FogEnd, FogColor
-    );
+    FogStart, FogEnd, FogColor);
 }
