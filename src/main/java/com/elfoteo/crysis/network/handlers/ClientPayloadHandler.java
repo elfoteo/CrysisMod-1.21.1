@@ -39,16 +39,23 @@ public class ClientPayloadHandler {
     }
 
     public static void handleSuitModePacket(SuitModePacket packet, IPayloadContext context) {
-        Player player = Minecraft.getInstance().player;
-        if (player == null) {
+        Player mainPlayer = Minecraft.getInstance().player;
+        if (mainPlayer == null) {
             return;
         }
-        context.enqueueWork(() -> {
-            if (Nanosuit.currentClientMode == SuitModes.VISOR.get() && packet.suitMode() != SuitModes.VISOR.get()) {
-                Nanosuit.previousClientMode = Nanosuit.currentClientMode; // Remember what we switched to after visor ends
-            }
-            Nanosuit.setClientMode(packet.suitMode(), player, false);
-        });
+        if (mainPlayer.level().getEntity(packet.playerId()) instanceof Player player){
+            context.enqueueWork(() -> {
+                if (packet.playerId() == mainPlayer.getId()){
+                    if (Nanosuit.currentClientMode == SuitModes.VISOR.get() && packet.suitMode() != SuitModes.VISOR.get()) {
+                        Nanosuit.previousClientMode = Nanosuit.currentClientMode; // Remember what we switched to after visor ends
+                    }
+                    Nanosuit.setClientMode(packet.suitMode(), player, false);
+                }
+                else{
+                    player.setData(ModAttachments.SUIT_MODE, packet.suitMode());
+                }
+            });
+        }
     }
 
     public static void handleGetUnlockedSkillsPacket(GetAllSkillsPacket packet, IPayloadContext context) {

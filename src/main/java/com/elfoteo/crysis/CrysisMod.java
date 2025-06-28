@@ -5,6 +5,7 @@ import com.elfoteo.crysis.block.entity.renderer.CreativeVendingMachineBlockEntit
 import com.elfoteo.crysis.block.entity.renderer.FlagBlockEntityRenderer;
 import com.elfoteo.crysis.commands.ModCommands;
 import com.elfoteo.crysis.event.PowerJumpUpgrade;
+import com.elfoteo.crysis.event.PowerJumpUpgradeClient;
 import com.elfoteo.crysis.gui.BuyingVendingMachineScreen;
 import com.elfoteo.crysis.gui.CreativeVendingMachineScreen;
 import com.elfoteo.crysis.nanosuit.NanosuitUpgrades;
@@ -86,6 +87,7 @@ public class CrysisMod {
         NeoForge.EVENT_BUS.register(AttachmentSyncing.class);
         if (FMLLoader.getDist() == Dist.CLIENT){
             modEventBus.register(InfraredShader.class);
+            NeoForge.EVENT_BUS.register(PowerJumpUpgradeClient.class);
         }
 
         ModCreativeModeTabs.register(modEventBus);

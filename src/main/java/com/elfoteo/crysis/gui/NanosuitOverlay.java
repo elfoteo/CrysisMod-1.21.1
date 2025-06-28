@@ -3,6 +3,7 @@ package com.elfoteo.crysis.gui;
 import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.event.PowerJumpUpgrade;
 import com.elfoteo.crysis.attachments.ModAttachments;
+import com.elfoteo.crysis.event.PowerJumpUpgradeClient;
 import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.util.SuitModes;
 import com.elfoteo.crysis.util.SuitUtils;
@@ -52,11 +53,6 @@ public class NanosuitOverlay {
     private static float displayedJump = 0f;
     private static long  lastTime = System.currentTimeMillis();
 
-    private static boolean redBlinking = false;
-    private static long blinkEndTime = 0;
-    private static final long BLINK_INTERVAL_MS = 250;
-    private static final long TOTAL_BLINK_DURATION_MS = 1000;
-
     private static float vignetteAlpha = 0f;
     private static boolean wasInCloakMode = false;
     private static final float VIGNETTE_FADE_IN_TIME = .3f;
@@ -104,7 +100,7 @@ public class NanosuitOverlay {
 
         // ——— Compute the “true” jump charge instantly ———
         float trueJump = Mth.clamp(
-                PowerJumpUpgrade.getCurrentJumpCharge(player),
+                PowerJumpUpgradeClient.getCurrentJumpCharge(player),
                 0f, 1f
         );
 
@@ -308,11 +304,6 @@ public class NanosuitOverlay {
         BufferUploader.drawWithShader(bb.buildOrThrow());
         RenderSystem.disableBlend();
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-    }
-
-    public static void startRedBlink() {
-        redBlinking = true;
-        blinkEndTime = System.currentTimeMillis() + TOTAL_BLINK_DURATION_MS;
     }
 
     private static final class Rect {

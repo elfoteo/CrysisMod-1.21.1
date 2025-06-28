@@ -58,7 +58,6 @@ public class SuitUtils {
 
             return true;
         }
-        NanosuitOverlay.startRedBlink();
         return false;
     }
 

@@ -146,11 +146,6 @@ public class Nanosuit {
     public static void setClientMode(int newMode, Player player, boolean sendPacket) {
         if (currentClientMode == newMode) return;
 
-        // If entering or exiting VISOR, force full relight (so darkness/lighting updates correctly)
-        if (currentClientMode == SuitModes.VISOR.get() || newMode == SuitModes.VISOR.get()) {
-            //Minecraft.getInstance().levelRenderer.allChanged();
-        }
-
         currentClientMode = newMode;
         player.setData(ModAttachments.SUIT_MODE, newMode);
         System.out.println(newMode + "; sendPacket=" + sendPacket);
@@ -215,8 +210,8 @@ public class Nanosuit {
         previousPositions.put(player.getUUID(), player.position());
 
         if (mode != newMode || energy != newEnergy) {
-            PacketDistributor.sendToPlayer((ServerPlayer) player,
-                    new SuitModePacket(player.getId(), newMode));
+            //PacketDistributor.sendToPlayer((ServerPlayer) player,
+            //        new SuitModePacket(player.getId(), newMode));
             PacketDistributor.sendToPlayer((ServerPlayer) player,
                     new ArmorInfoPacket(
                             newEnergy,
@@ -225,6 +220,7 @@ public class Nanosuit {
                             newMode
                     ));
         }
+        PacketDistributor.sendToAllPlayers(new SuitModePacket(player.getId(), newMode));
     }
 
     private static float getCloakDrainRate(Player player) {

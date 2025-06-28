@@ -6,6 +6,7 @@ import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.skill.Skill;
 import com.elfoteo.crysis.skill.SkillState;
 import com.elfoteo.crysis.util.InfraredShader;
+import com.elfoteo.crysis.util.RenderState;
 import com.elfoteo.crysis.util.SuitModes;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
@@ -72,8 +73,11 @@ public abstract class NanosuitLivingEntityRenderer<T extends LivingEntity, M ext
 
         if (entity instanceof AbstractClientPlayer player) {
             isCloak = player.getData(ModAttachments.SUIT_MODE) == SuitModes.CLOAK.get();
-            // Cloak mode: hide all other players
-            if (isCloak && entity != mc.player) {
+            boolean isUs = entity == mc.player;
+            RenderState.isRenderingMainPlayer = isUs;
+            RenderState.currentlyRenderingPlayer = player;
+            // Cloak mode: hide all other players, allow us to see ourselves
+            if (isCloak && !isUs) {
                 ci.cancel();
                 return;
             }

@@ -3,6 +3,7 @@ package com.elfoteo.crysis.mixins.layer;
 import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.attachments.ModAttachments;
 import com.elfoteo.crysis.event.PowerJumpUpgrade;
+import com.elfoteo.crysis.event.PowerJumpUpgradeClient;
 import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.skill.Skill;
 import com.elfoteo.crysis.util.InfraredShader;
@@ -46,7 +47,7 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
         if (player != null && SuitUtils.isWearingFullNanosuit(player)) {
             int modeVal = player.getData(ModAttachments.SUIT_MODE);
             SuitModes mode = SuitModes.from(modeVal);
-
+            System.out.println("I am: "+Minecraft.getInstance().player.getName() + ", I am rendering: " + player.getName() + ", he is in suit mode: " + mode);
             if (!RenderState.isRenderingMainPlayer && mode == SuitModes.CLOAK) {
                 ci.cancel();
                 return;
@@ -54,7 +55,7 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
 
             float currentEnergy = player.getData(ModAttachments.ENERGY);
             int maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
-            float energyRatio = maxEnergy > 0 ? (float) currentEnergy / maxEnergy : 0f;
+            float energyRatio = maxEnergy > 0 ? currentEnergy / maxEnergy : 0f;
 
             // Access main client player for special visor mode handling
             Player mcPlayer = Minecraft.getInstance().player;
@@ -98,7 +99,7 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
 
             // If player is charging a jump, fade to yellow (1, 1, 0) based on charge
             if (player.level().isClientSide) {
-                float jumpCharge = PowerJumpUpgrade.getCurrentJumpCharge(player);
+                float jumpCharge = PowerJumpUpgradeClient.getCurrentJumpCharge(player);
                 if (jumpCharge > 0f) {
                     float targetR = 1f, targetG = 1f, targetB = 0f;
                     r = Mth.lerp(jumpCharge, r, targetR);

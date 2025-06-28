@@ -21,6 +21,7 @@ import net.minecraft.world.entity.player.Player;
 import com.mojang.blaze3d.vertex.PoseStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -34,39 +35,12 @@ public abstract class NanosuitPlayerRenderer extends LivingEntityRenderer<Abstra
 
     @Shadow protected abstract void setModelProperties(AbstractClientPlayer clientPlayer);
 
+    @Unique
     private static final ResourceLocation NANOSUIT_TEXTURE = ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "textures/entity/nanosuit.png");
 
-    @Inject(method = "render(Lnet/minecraft/client/player/AbstractClientPlayer;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "render(Lnet/minecraft/client/player/AbstractClientPlayer;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At("HEAD"))
     private void modifyPlayerRendering(AbstractClientPlayer entity, float entityYaw, float partialTicks,
             PoseStack poseStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
-        if (entity == null)
-            return;
-
-        Minecraft mc = Minecraft.getInstance();
-        Player player = mc.player;
-        if (player == null || mc.level == null)
-            return;
-
-        if (entity == mc.player) RenderState.isRenderingMainPlayer = true;
-        RenderState.currentlyRenderingPlayer = entity;
-
-        if (SuitUtils.isWearingFullNanosuit(player)
-                && player.getData(ModAttachments.SUIT_MODE) == SuitModes.CLOAK.get()) {
-            if (entity == mc.player) {
-                // Hide other players with the effect
-//                int r = 200;
-//                int g = 200;
-//                int b = 200;
-//                int alpha = (int) (0.5f * 255);
-//
-//                MultiBufferSource translucentBuffer = new CustomColoredMultiBufferSource(buffer, r, g, b, alpha,
-//                        textureLocation);
-            }
-            else {
-                ci.cancel();
-            }
-            // Local player: allow default rendering to proceed
-        }
     }
 
     @Inject(method = "render(Lnet/minecraft/client/player/AbstractClientPlayer;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At("TAIL"))
