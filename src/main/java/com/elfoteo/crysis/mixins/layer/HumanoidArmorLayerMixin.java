@@ -47,7 +47,6 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
         if (player != null && SuitUtils.isWearingFullNanosuit(player)) {
             int modeVal = player.getData(ModAttachments.SUIT_MODE);
             SuitModes mode = SuitModes.from(modeVal);
-            System.out.println("I am: "+Minecraft.getInstance().player.getName() + ", I am rendering: " + player.getName() + ", he is in suit mode: " + mode);
             if (!RenderState.isRenderingMainPlayer && mode == SuitModes.CLOAK) {
                 ci.cancel();
                 return;

@@ -1,4 +1,4 @@
-package com.elfoteo.crysis.mixins;
+package com.elfoteo.crysis.mixins.nanosuit.infrared;
 
 import com.elfoteo.crysis.attachments.ModAttachments;
 import com.elfoteo.crysis.util.InfraredShader;
@@ -18,14 +18,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.SignBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.WoodType;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;

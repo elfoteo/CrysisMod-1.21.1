@@ -1,34 +1,15 @@
-package com.elfoteo.crysis.mixins;
+package com.elfoteo.crysis.mixins.nanosuit.infrared;
 
 import com.elfoteo.crysis.attachments.ModAttachments;
-import com.elfoteo.crysis.mixins.accessors.ICompositeStateAccessor;
-import com.elfoteo.crysis.mixins.accessors.TextureStateShardAccessor;
-import com.elfoteo.crysis.nanosuit.Nanosuit;
-import com.elfoteo.crysis.util.ICompositeRenderType;
 import com.elfoteo.crysis.util.InfraredShader;
 import com.elfoteo.crysis.util.SuitModes;
-import com.elfoteo.crysis.util.TrailTextureManager;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.Model;
-import net.minecraft.client.model.SkullModelBase;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.SkullBlockRenderer;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.SkinManager;
-import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.component.ResolvableProfile;
-import net.minecraft.world.level.block.AbstractSkullBlock;
 import net.minecraft.world.level.block.SkullBlock;
-import net.minecraft.world.level.block.WallSkullBlock;
-import net.minecraft.world.level.block.entity.SkullBlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.RotationSegment;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import org.spongepowered.asm.mixin.Final;
@@ -37,11 +18,9 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Map;
-import java.util.Optional;
 
 @OnlyIn(Dist.CLIENT)
 @Mixin(SkullBlockRenderer.class)

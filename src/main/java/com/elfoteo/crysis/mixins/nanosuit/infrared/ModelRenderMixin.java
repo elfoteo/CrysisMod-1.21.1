@@ -1,16 +1,11 @@
-package com.elfoteo.crysis.mixins;
+package com.elfoteo.crysis.mixins.nanosuit.infrared;
 
 import com.elfoteo.crysis.mixins.accessors.ICompositeStateAccessor;
 import com.elfoteo.crysis.mixins.accessors.TextureStateShardAccessor;
-import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.util.ICompositeRenderType;
-import com.elfoteo.crysis.util.InfraredShader;
-import com.elfoteo.crysis.util.SuitModes;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.Model;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;

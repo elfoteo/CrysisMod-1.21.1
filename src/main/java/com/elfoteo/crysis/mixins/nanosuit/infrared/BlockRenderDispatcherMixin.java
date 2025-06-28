@@ -1,4 +1,4 @@
-package com.elfoteo.crysis.mixins;
+package com.elfoteo.crysis.mixins.nanosuit.infrared;
 
 import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.util.InfraredShader;

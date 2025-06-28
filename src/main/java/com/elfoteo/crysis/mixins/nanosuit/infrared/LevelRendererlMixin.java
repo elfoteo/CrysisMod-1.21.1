@@ -1,4 +1,4 @@
-package com.elfoteo.crysis.mixins;
+package com.elfoteo.crysis.mixins.nanosuit.infrared;
 
 import com.elfoteo.crysis.gui.util.EntityDisposition;
 import com.elfoteo.crysis.nanosuit.Nanosuit;
@@ -6,7 +6,6 @@ import com.elfoteo.crysis.util.InfraredShader;
 import com.elfoteo.crysis.util.SetSectionRenderDispatcher;
 import com.elfoteo.crysis.util.SuitModes;
 import com.elfoteo.crysis.util.TrailTextureManager;
-import com.mojang.blaze3d.shaders.Uniform;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexBuffer;
@@ -24,29 +23,20 @@ import net.minecraft.core.SectionPos;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.client.ClientHooks;
 import org.joml.Matrix4f;
-import org.lwjgl.opengl.*;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @OnlyIn(Dist.CLIENT)
 @Mixin(LevelRenderer.class)
@@ -154,20 +144,14 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         RenderSystem.assertOnRenderThread();
         renderType.setupRenderState();
 
-        // ———————————————————————————————
-        // 1) Ensure our 3D trail texture exists
-        // ———————————————————————————————
+        // Ensure our 3D trail texture exists
         TrailTextureManager.allocateOrResizeIfNeeded();
 
-        // ———————————————————————————————
-        // 2) Possibly shift texture (if camera moved far enough)
-        // ———————————————————————————————
+        // Possibly shift texture (if camera moved far enough)
         Vec3 currentCameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
         TrailTextureManager.updateTexturePosition(currentCameraPos);
 
-        // ———————————————————————————————
-        // 3) Vanilla translucent sorting (unchanged)
-        // ———————————————————————————————
+        // Vanilla translucent sorting (unchanged)
         if (renderType == RenderType.translucent()) {
             this.minecraft.getProfiler().push("translucent_sort");
             double d0 = x - this.xTransparentOld;
@@ -200,9 +184,7 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         boolean solidPass = (renderType != RenderType.translucent());
         ObjectListIterator<SectionRenderDispatcher.RenderSection> objectlistiterator = this.visibleSections.listIterator(solidPass ? 0 : this.visibleSections.size());
 
-        // ———————————————————————————————
-        // 4) Select your infrared shader (hard‐coded to SOLID_SHADER here)
-        // ———————————————————————————————
+        // Select your infrared shader (hard‐coded to SOLID_SHADER here)
         ShaderInstance shaderInstance = InfraredShader.Blocks.SOLID_SHADER;
         shaderInstance.setDefaultUniforms(
                 VertexFormat.Mode.QUADS,
@@ -212,19 +194,10 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         );
         shaderInstance.apply();
 
-        // ———————————————————————————————
-        // 5) Upload “hot entities” data (unchanged from your mixin)
-        // ———————————————————————————————
-
-
-        // ———————————————————————————————
-        // 8) Bind the 3D trail texture and sampler (now inside TrailTextureManager)
-        // ———————————————————————————————
+        // Bind the 3D trail texture and sampler (now inside TrailTextureManager)
         TrailTextureManager.bindForRender(shaderInstance, renderType, true);
 
-        // ———————————————————————————————
-        // 9) Draw all visible sections with our custom shader
-        // ———————————————————————————————
+        // Draw all visible sections with our custom shader
         var chunkOffset = shaderInstance.getUniform("ChunkOffset");
         while (true) {
             if (solidPass) {
@@ -260,15 +233,11 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             chunkOffset.upload();
         }
 
-        // ———————————————————————————————
-        // 10) Restore GL state (unbind image unit, restore texture bindings)
+        // Restore GL state (unbind image unit, restore texture bindings)
         //     (now inside TrailTextureManager)
-        // ———————————————————————————————
         TrailTextureManager.unbindAfterRender();
 
-        // ———————————————————————————————
-        // 11) Cleanup: clear shader, unbind VB, pop profiler, cancel
-        // ———————————————————————————————
+        // Cleanup: clear shader, unbind VB, pop profiler, cancel
         shaderInstance.clear();
         VertexBuffer.unbind();
         minecraft.getProfiler().pop();
