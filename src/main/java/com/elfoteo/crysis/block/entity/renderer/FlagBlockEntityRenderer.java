@@ -31,13 +31,10 @@ import java.util.List;
  *   - No owner: gray (0xAAAAAA)
  *   - Blue owner: blue (0x5555FF)
  *   - Red owner: red (0xFF5555)
- *
  * If there are only Blue‐team players on top, the beam briefly flashes aqua (0x00FFFF)
  * once every 5 seconds (for 0.5 seconds), then returns to the base color.
- *
  * If there are only Red‐team players on top, the beam briefly flashes dark red (0xAA0000)
  * once every 5 seconds (for 0.5 seconds), then returns to the base color.
- *
  * In any other situation (mixed teams on top or no players on top), the beam remains the base color.
  */
 public class FlagBlockEntityRenderer implements BlockEntityRenderer<FlagBlockEntity> {
@@ -160,14 +157,10 @@ public class FlagBlockEntityRenderer implements BlockEntityRenderer<FlagBlockEnt
         float f2 = Mth.frac(f1 * 0.2F - (float)Mth.floor(f1 * 0.1F));
         poseStack.pushPose();
         poseStack.mulPose(Axis.YP.rotationDegrees(f * 2.25F - 45.0F));
-        float f3 = 0.0F;
-        float f5 = 0.0F;
+        float f3;
+        float f5;
         float f6 = -beamRadius;
-        float f7 = 0.0F;
-        float f8 = 0.0F;
         float f9 = -beamRadius;
-        float f10 = 0.0F;
-        float f11 = 1.0F;
         float f12 = -1.0F + f2;
         float f13 = (float)height * textureScale * (0.5F / beamRadius) + f12;
         renderPart(poseStack, bufferSource.getBuffer(RenderType.beaconBeam(beamLocation, false)),
@@ -178,8 +171,6 @@ public class FlagBlockEntityRenderer implements BlockEntityRenderer<FlagBlockEnt
         float f4 = -glowRadius;
         f5 = -glowRadius;
         f6 = -glowRadius;
-        f10 = 0.0F;
-        f11 = 1.0F;
         f12 = -1.0F + f2;
         f13 = (float)height * textureScale + f12;
         renderPart(poseStack, bufferSource.getBuffer(RenderType.beaconBeam(beamLocation, true)),

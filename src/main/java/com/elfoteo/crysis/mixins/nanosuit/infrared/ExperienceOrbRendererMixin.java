@@ -52,7 +52,7 @@ public abstract class ExperienceOrbRendererMixin extends EntityRenderer<Experien
     private void getRenderType(ExperienceOrb entity, float entityYaw, float partialTicks, PoseStack poseStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
         if (Minecraft.getInstance().player.getData(ModAttachments.SUIT_MODE) == SuitModes.VISOR.get()){
             if (INFRARED_RENDER_TYPE == null){
-                INFRARED_RENDER_TYPE = InfraredShader.infraredEntityGeneric(EXPERIENCE_ORB_LOCATION);
+                INFRARED_RENDER_TYPE = InfraredShader.infraredPlasma(EXPERIENCE_ORB_LOCATION);
             }
             poseStack.pushPose();
             int i = entity.getIcon();

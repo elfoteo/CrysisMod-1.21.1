@@ -127,6 +127,8 @@ public class InfraredShader {
     public static ShaderInstance INFRARED_SOLID_SHADER;
     public static ShaderInstance INFRARED_ENTITY_SHADER;
     public static ShaderInstance INFRARED_UNDEAD_SHADER;
+    public static ShaderInstance INFRARED_PLASMA_SHADER;
+    public static ShaderInstance INFRARED_BEACON_SHADER;
     public static ShaderInstance INFRARED_ARMOR_SHADER;
     public static ShaderInstance NANOSUIT_OVERLAY_SHADER;
     public static ShaderInstance INFRARED_ITEM_SHADER;
@@ -137,6 +139,7 @@ public class InfraredShader {
 
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_ENTITY_GENERIC;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_UNDEAD_GENERIC;
+    private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_PLASMA;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_TRANSLUCENT;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_CUTOUT_NO_CULL_Z_OFFSET;
     private static Function<ResourceLocation, RenderType> ARMOR_INFRARED_RENDER_TYPE;
@@ -144,6 +147,7 @@ public class InfraredShader {
     private static Function<ResourceLocation, RenderType> INFRARED_ENTITY_TRANSLUCENT_CULL_FOR_ITEMS;
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_CUTOUT_NO_CULL;
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_BLOCK;
+    public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_BEACON_BEAM;
 
     public static BiFunction<ResourceLocation, Boolean, RenderType> TARGET_INDICATOR;
 
@@ -227,6 +231,18 @@ public class InfraredShader {
 
             INFRARED_UNDEAD_SHADER.safeGetUniform("u_Heat").set(-0.56f);
 
+            INFRARED_PLASMA_SHADER = new ShaderInstance(event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_entity"),
+                    DefaultVertexFormat.POSITION_COLOR);
+
+            INFRARED_PLASMA_SHADER.safeGetUniform("u_Heat").set(+1.25f);
+
+            INFRARED_BEACON_SHADER = new ShaderInstance(event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_beacon"),
+                    DefaultVertexFormat.POSITION_COLOR);
+
+            INFRARED_BEACON_SHADER.safeGetUniform("u_Heat").set(+1f);
+
             INFRARED_ARMOR_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_armor_layer"),
                     DefaultVertexFormat.NEW_ENTITY);
@@ -264,7 +280,6 @@ public class InfraredShader {
                         .setShaderState(new RenderStateShard.ShaderStateShard(() -> INFRARED_ENTITY_SHADER))
                         .setTextureState(new RenderStateShard.TextureStateShard(p_286166_, false, false))
                         .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
-                        .setCullState(RenderType.NO_CULL)
                         .setLightmapState(RenderType.LIGHTMAP)
                         .setOverlayState(RenderType.OVERLAY)
                         .setDepthTestState(RenderType.NO_DEPTH_TEST)
@@ -278,13 +293,34 @@ public class InfraredShader {
                         .setShaderState(new RenderStateShard.ShaderStateShard(() -> INFRARED_UNDEAD_SHADER))
                         .setTextureState(new RenderStateShard.TextureStateShard(p_286166_, false, false))
                         .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
-                        .setCullState(RenderType.NO_CULL)
                         .setLightmapState(RenderType.LIGHTMAP)
                         .setOverlayState(RenderType.OVERLAY)
                         .setDepthTestState(RenderType.NO_DEPTH_TEST)
                         .setCullState(RenderType.CULL)
                         .createCompositeState(p_286167_);
-                return RenderType.create("infrared_entity_generic", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false, rendertype$compositestate);
+                return RenderType.create("infrared_entity_undead_generic", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false, rendertype$compositestate);
+            });
+
+            INFRARED_RENDER_TYPE_PLASMA = Util.memoize((p_286166_, p_286167_) -> {
+                CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
+                        .setShaderState(new RenderStateShard.ShaderStateShard(() -> INFRARED_PLASMA_SHADER))
+                        .setTextureState(new RenderStateShard.TextureStateShard(p_286166_, false, false))
+                        .setTransparencyState(RenderType.NO_TRANSPARENCY)
+                        .setLightmapState(RenderType.LIGHTMAP)
+                        .setOverlayState(RenderType.OVERLAY)
+                        .setCullState(RenderType.CULL)
+                        .createCompositeState(p_286167_);
+                return RenderType.create("infrared_plasma", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false, rendertype$compositestate);
+            });
+
+            INFRARED_BEACON_BEAM = Util.memoize((p_234330_, p_234331_) -> {
+                CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
+                        .setShaderState(new RenderStateShard.ShaderStateShard(() -> INFRARED_BEACON_SHADER))
+                        .setTextureState(new RenderStateShard.TextureStateShard(p_234330_, false, false))
+                        .setTransparencyState(p_234331_ ? RenderType.TRANSLUCENT_TRANSPARENCY : RenderType.NO_TRANSPARENCY)
+                        .setWriteMaskState(p_234331_ ? RenderType.COLOR_WRITE : RenderType.COLOR_DEPTH_WRITE)
+                        .createCompositeState(false);
+                return RenderType.create("infrared_beacon_beam", DefaultVertexFormat.BLOCK, Mode.QUADS, 1536, false, true, rendertype$compositestate);
             });
 
             INFRARED_ENTITY_TRANSLUCENT_CULL_FOR_ITEMS = Util.memoize((p_286165_) -> {
@@ -386,6 +422,10 @@ public class InfraredShader {
 
     public static RenderType infraredUndeadGeneric(ResourceLocation location) {
         return INFRARED_RENDER_TYPE_UNDEAD_GENERIC.apply(location, true);
+    }
+
+    public static RenderType infraredPlasma(ResourceLocation location) {
+        return INFRARED_RENDER_TYPE_PLASMA.apply(location, true);
     }
 
     public static RenderType infraredEntityTranslucentCull_for_items(ResourceLocation location) {
