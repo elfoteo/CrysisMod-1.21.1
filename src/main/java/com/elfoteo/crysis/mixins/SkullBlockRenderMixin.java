@@ -64,7 +64,7 @@ public abstract class SkullBlockRenderMixin {
         return SkullBlockRenderer.getRenderType(type, profile);
     }
 
-    // Inject into the 4-arg renderToBuffer method
+    // Inject into the getRenderType method (this looks correct)
     @Inject(method = "getRenderType",
             at = @At("HEAD"), cancellable = true)
     private static void getRenderType(SkullBlock.Type type, ResolvableProfile profile, CallbackInfoReturnable<RenderType> cir) {
@@ -77,22 +77,6 @@ public abstract class SkullBlockRenderMixin {
             else {
                 cir.setReturnValue(InfraredShader.infraredEntityCutoutNoCullZOffset(resourcelocation));
             }
-        }
-    }
-
-    @Inject(method = "render(Lnet/minecraft/world/level/block/entity/SkullBlockEntity;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;II)V", at=@At("HEAD"))
-    private void preRender(SkullBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay, CallbackInfo ci) {
-        if (Minecraft.getInstance().player.getData(ModAttachments.SUIT_MODE) == SuitModes.VISOR.get()){
-            BlockState blockstate = blockEntity.getBlockState();
-            SkullBlock.Type skullblock$type = ((AbstractSkullBlock)blockstate.getBlock()).getType();
-            TrailTextureManager.bindForRender(InfraredShader.Blocks.SOLID_SHADER, getRenderType(skullblock$type, blockEntity.getOwnerProfile()), false);
-        }
-    }
-
-    @Inject(method = "render(Lnet/minecraft/world/level/block/entity/SkullBlockEntity;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;II)V", at=@At("TAIL"))
-    private void postRender(SkullBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay, CallbackInfo ci) {
-        if (Minecraft.getInstance().player.getData(ModAttachments.SUIT_MODE) == SuitModes.VISOR.get()){
-            TrailTextureManager.unbindAfterRender();
         }
     }
 }

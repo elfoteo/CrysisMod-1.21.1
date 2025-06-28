@@ -356,6 +356,18 @@ public class InfraredShader {
         }
     }
 
+    /**
+     * This method returns the currently‐active infrared entity shader instance.
+     * Use this as the supplier for RenderSystem.setShader().
+     */
+    @OnlyIn(Dist.CLIENT)
+    public static ShaderInstance getInfraredProgram() {
+        if (INFRARED_ENTITY_SHADER == null) {
+            throw new IllegalStateException("InfraredShader: INFRARED_ENTITY_SHADER not yet initialized!");
+        }
+        return INFRARED_ENTITY_SHADER;
+    }
+
     public static RenderType infraredEntityCutoutNoCull(ResourceLocation location, boolean outline) {
         return INFRARED_ENTITY_CUTOUT_NO_CULL.apply(location, outline);
     }
