@@ -38,8 +38,8 @@ void main() {
     }
 
     // Keep your fog/fade logic if you want:
-    float fadeStart = 20.0;
-    float fadeEnd   = 35.0;
+    float fadeStart = 40.0;
+    float fadeEnd   = 55.0;
     float fadeT = clamp((distanceFromCamera - fadeStart) / (fadeEnd - fadeStart), 0.0, 1.0);
     float normalizedHeat = (1 - clamp(distanceFromCamera / fadeEnd, 0.0, 1.0))*u_Heat*1.5;
 

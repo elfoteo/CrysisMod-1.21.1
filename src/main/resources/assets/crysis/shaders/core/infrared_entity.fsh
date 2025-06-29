@@ -43,8 +43,8 @@ void main() {
 
     if (src.a < 0.1) discard;
 
-    const float fadeStart = 30.0;
-    const float fadeEnd   = 45.0;
+    const float fadeStart = 80.0;
+    const float fadeEnd   = 105.0;
     float fadeT = clamp((cameraDistance - fadeStart) / (fadeEnd - fadeStart), 0.0, 1.0);
 
     // Heat diffusion
