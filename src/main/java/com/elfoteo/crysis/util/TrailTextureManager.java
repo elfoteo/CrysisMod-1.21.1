@@ -1,26 +1,45 @@
 package com.elfoteo.crysis.util;
 
+import com.elfoteo.crysis.CrysisMod;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.animal.*;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.decoration.*;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.projectile.*;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.ClientHooks;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import org.lwjgl.opengl.*;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.nio.FloatBuffer;
+import java.util.*;
 
 /**
  * Manages a single 512×512×384 R16 3D "trail" texture in world‐space.
  * Handles allocation, compute‐shader setup, shifting, world‐offset tracking,
  * and (now) binding/unbinding for rendering.
- *
  * This is a static utility class - all methods and fields are static.
  */
+@EventBusSubscriber(modid = CrysisMod.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public class TrailTextureManager {
     // ---------------------------------------------------------
     // Texture IDs and size
@@ -38,7 +57,7 @@ public class TrailTextureManager {
 
     // Has the shader / texture been initialized yet this session?
     private static boolean textureInitialized = false;
-    private static final Minecraft minecraft = Minecraft.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     // ---------------------------------------------------------
     // Compute‐shader objects
@@ -385,10 +404,163 @@ public class TrailTextureManager {
         return trailTextureId;
     }
 
+    public static boolean emitsHeat(Entity e){
+        return !(e instanceof Arrow) && !(e instanceof SpectralArrow) && !(e instanceof SnowGolem) && !(e instanceof ExperienceOrb) && !(e instanceof ItemEntity) && !(e instanceof ThrownPotion) && !(e instanceof ThrownTrident) && !(e instanceof ThrownEnderpearl) && !(e instanceof ThrownEgg) && !(e instanceof Snowball) && !(e instanceof ThrownExperienceBottle) && !(e instanceof SmallFireball) && !(e instanceof WitherSkull) && !(e instanceof EvokerFangs) && !(e instanceof AreaEffectCloud) && !(e instanceof LightningBolt) && !(e instanceof FishingHook) && !(e instanceof AbstractMinecart) && !(e instanceof Boat) && !(e instanceof Painting) && !(e instanceof ItemFrame) && !(e instanceof ArmorStand) && !(e instanceof Marker) && !(e instanceof EndCrystal) && !(e instanceof FireworkRocketEntity) && !(e instanceof Display.BlockDisplay) && !(e instanceof Display.ItemDisplay) && !(e instanceof Display.TextDisplay) && !(e instanceof ShulkerBullet) && !(e instanceof PrimedTnt) && !(e instanceof EyeOfEnder) && !(e instanceof LeashFenceKnotEntity);
+    }
 
-    // ---------------------------------------------------------
-    // NEW: Bind/unbind logic for the mixin to call
-    // ---------------------------------------------------------
+    private static double getFov(Camera activeRenderInfo, float partialTicks, boolean useFOVSetting) {
+        if (mc.gameRenderer.isPanoramicMode()) {
+            return 90.0F;
+        } else {
+            double d0 = 70.0F;
+            if (useFOVSetting) {
+                d0 = (double) mc.options.fov().get();
+            }
+
+            if (activeRenderInfo.getEntity() instanceof LivingEntity && ((LivingEntity)activeRenderInfo.getEntity()).isDeadOrDying()) {
+                float f = Math.min((float)((LivingEntity)activeRenderInfo.getEntity()).deathTime + partialTicks, 20.0F);
+                d0 /= ((1.0F - 500.0F / (f + 500.0F)) * 2.0F + 1.0F);
+            }
+
+            FogType fogtype = activeRenderInfo.getFluidInCamera();
+            if (fogtype == FogType.LAVA || fogtype == FogType.WATER) {
+                d0 *= Mth.lerp(mc.options.fovEffectScale().get(), 1.0F, (double)0.85714287F);
+            }
+
+            return ClientHooks.getFieldOfView(mc.gameRenderer, activeRenderInfo, (double)partialTicks, d0, useFOVSetting);
+        }
+    }
+
+    private static final int MAX_PER_FRAME = 32;             // 32 uploads per frame
+    private static final float TICK_RATE = 20f;             // ticks per second (20 Hz)
+    private static final float UPDATES_PER_SEC = MAX_PER_FRAME * TICK_RATE; // 640 updates/sec
+
+    // Texture dimensions
+    private static final int TEXTURE_WIDTH = 512;
+    private static final int TEXTURE_HEIGHT = 512;
+    private static final int TEXTURE_DEPTH = 384;
+
+    // Priority distance thresholds (simple ranges)
+    private static final double NEARBY_DISTANCE = 64.0;   // < 64 blocks
+    private static final double MEDIUM_DISTANCE = 128.0;  // 64-128 blocks
+// > 128 blocks = far
+
+    // Entity queues by priority
+    private static final List<Entity> nearbyEntities = new ArrayList<>();
+    private static final List<Entity> mediumEntities = new ArrayList<>();
+    private static final List<Entity> farEntities = new ArrayList<>();
+
+    // Current processing indices for each priority queue
+    private static int nearbyIndex = 0;
+    private static int mediumIndex = 0;
+    private static int farIndex = 0;
+
+    // accumulator of how many entity-uploads we may spend
+    private static float updateBudget = 0f;
+
+    // Called at 20 Hz - refresh entity lists
+    @SubscribeEvent
+    @OnlyIn(Dist.CLIENT)
+    public static void onClientTick(ClientTickEvent.Post event) {
+        // Each tick you gain MAX_PER_TICK units of budget:
+        updateBudget += MAX_PER_FRAME;
+        // clamp to avoid runaway if lagged:
+        if (updateBudget > UPDATES_PER_SEC) {
+            updateBudget = UPDATES_PER_SEC;
+        }
+
+        // Refresh entity lists every tick
+        refreshEntityLists();
+    }
+
+    /**
+     * Pull all entities within texture bounds and sort into priority groups
+     */
+    private static void refreshEntityLists() {
+        if (mc.player == null || mc.level == null) return;
+        Camera cam = mc.gameRenderer.getMainCamera();
+        Vec3 camPos = cam.getPosition();
+
+        // Clear previous lists
+        nearbyEntities.clear();
+        mediumEntities.clear();
+        farEntities.clear();
+
+        // Reset indices when lists are refreshed
+        nearbyIndex = 0;
+        mediumIndex = 0;
+        farIndex = 0;
+
+        // Calculate texture bounds (centered on camera)
+        double halfWidth = TEXTURE_WIDTH / 2.0;
+        double halfHeight = TEXTURE_HEIGHT / 2.0;
+        double halfDepth = TEXTURE_DEPTH / 2.0;
+
+        AABB textureBox = new AABB(
+                camPos.x - halfWidth, camPos.y - halfHeight, camPos.z - halfDepth,
+                camPos.x + halfWidth, camPos.y + halfHeight, camPos.z + halfDepth
+        );
+
+        // Get all entities within texture bounds
+        List<Entity> allEntities = mc.level.getEntities(null, textureBox).stream()
+                .filter(TrailTextureManager::emitsHeat)
+                .toList();
+
+        // Sort into priority groups based on distance
+        for (Entity entity : allEntities) {
+            double distanceSq = entity.distanceToSqr(camPos);
+            double distance = Math.sqrt(distanceSq);
+
+            if (distance < NEARBY_DISTANCE) {
+                nearbyEntities.add(entity);
+            } else if (distance < MEDIUM_DISTANCE) {
+                mediumEntities.add(entity);
+            } else {
+                farEntities.add(entity);
+            }
+        }
+    }
+
+    /**
+     * Get next batch of entities to process this frame, prioritizing nearby > medium > far
+     */
+    private static List<Entity> getNextEntityBatch(int maxCount, Frustum frustum) {
+        List<Entity> batch = new ArrayList<>();
+
+        // First, try to fill from nearby entities
+        while (batch.size() < maxCount && nearbyIndex < nearbyEntities.size()) {
+            Entity entity = nearbyEntities.get(nearbyIndex++);
+            if (isEntityVisible(entity, frustum)) {
+                batch.add(entity);
+            }
+        }
+
+        // Then medium entities
+        while (batch.size() < maxCount && mediumIndex < mediumEntities.size()) {
+            Entity entity = mediumEntities.get(mediumIndex++);
+            if (isEntityVisible(entity, frustum)) {
+                batch.add(entity);
+            }
+        }
+
+        // Finally far entities
+        while (batch.size() < maxCount && farIndex < farEntities.size()) {
+            Entity entity = farEntities.get(farIndex++);
+            if (isEntityVisible(entity, frustum)) {
+                batch.add(entity);
+            }
+        }
+
+        return batch;
+    }
+
+    /**
+     * Simple visibility check - only render visible entities
+     */
+    private static boolean isEntityVisible(Entity entity, Frustum frustum) {
+        AABB bb = entity.getBoundingBox().inflate(0.1);
+        return frustum.isVisible(bb);
+    }
 
     /**
      * Saves the current GL state (active texture unit, bound 2D, bound 3D),
@@ -396,37 +568,41 @@ public class TrailTextureManager {
      * and uploads the "TrailSampler" uniform to point at sampler unit 2.
      */
     public static void bindForRender(ShaderInstance shaderInstance, RenderType renderType, boolean useDelta) {
-        Camera camera = minecraft.gameRenderer.getMainCamera();
-        Vec3 camPos = camera.getPosition();
-        double searchRadius = 20.0;
-        AABB box = new AABB(
-                camPos.x - searchRadius, camPos.y - searchRadius, camPos.z - searchRadius,
-                camPos.x + searchRadius, camPos.y + searchRadius, camPos.z + searchRadius
-        );
-        List<Entity> nearby = minecraft.level.getEntities(null, box);
+        Camera cam = mc.gameRenderer.getMainCamera();
+        Vec3 camPos = cam.getPosition();
 
-        float[] entityData = new float[128]; // 16 × (2 × vec4)
-        int count = 0;
-        for (Entity e : nearby) {
-            if (count >= 16) break;
-            Vec3 epWorld = e.position();
-            float ex = (float) (epWorld.x - camPos.x);
-            float ey = (float) (epWorld.y - camPos.y);
-            float ez = (float) (epWorld.z - camPos.z);
+        // Build view frustum
+        Quaternionf quaternionf = cam.rotation().conjugate(new Quaternionf());
+        Matrix4f matrix4f1 = new Matrix4f().rotation(quaternionf);
+        float f = TrailTextureManager.mc.getTimer().getGameTimeDeltaPartialTick(true);
+        double d0 = getFov(cam, f, true);
+        Frustum frustum = new Frustum(matrix4f1, mc.gameRenderer.getProjectionMatrix(Math.max(d0, TrailTextureManager.mc.options.fov().get())));
+        frustum.prepare(camPos.x, camPos.y, camPos.z);
 
-            float width  = e.getBbWidth()  * 4 * e.getBbHeight();
-            float height = e.getBbHeight() * 4 * e.getBbHeight();
-            ey += e.getBbHeight() / 2.0F;
+        // Figure out how many uploads we can spend this frame:
+        // gain fractional budget proportional to frame time
+        float frameTime = mc.getTimer().getRealtimeDeltaTicks(); // seconds since last frame
+        updateBudget += UPDATES_PER_SEC * frameTime - 0; // (adds ~10.7 per 1/60s)
+        int budget = (int) Math.floor(updateBudget);
+        updateBudget -= budget;
 
-            int base = count * 8;
-            entityData[base + 0] = ex;
-            entityData[base + 1] = ey;
-            entityData[base + 2] = ez;
-            entityData[base + 3] = width;
-            entityData[base + 4] = height;
-            // leftover slots stay zero
-            count++;
+        // Limit budget to MAX_PER_FRAME
+        budget = Math.min(budget, MAX_PER_FRAME);
+
+        // Get next batch of entities to process (up to budget limit)
+        List<Entity> entitiesToProcess = getNextEntityBatch(budget, frustum);
+
+        // Fill buffer with prioritized entities
+        FloatBuffer buf = FloatBuffer.allocate(64 * 3);
+        for (Entity e : entitiesToProcess) {
+            Vec3 p = e.position();
+            float ex = (float)(p.x - camPos.x);
+            float ey = (float)(p.y - camPos.y + e.getBbHeight()/2f);
+            float ez = (float)(p.z - camPos.z);
+
+            buf.put(ex).put(ey).put(ez);
         }
+        int count = entitiesToProcess.size();
 
         var ec = shaderInstance.getUniform("EntityCount");
         if (ec != null) {
@@ -435,13 +611,13 @@ public class TrailTextureManager {
         }
         var ed = shaderInstance.getUniform("EntityData");
         if (ed != null) {
-            ed.set(entityData);
+            ed.set(buf.array());
             ed.upload();
         }
 
         var cwp = shaderInstance.getUniform("CameraPos");
         if (cwp != null) {
-            Vec3 c = minecraft.gameRenderer.getMainCamera().getPosition();
+            Vec3 c = mc.gameRenderer.getMainCamera().getPosition();
             cwp.set((float) c.x, (float) c.y, (float) c.z);
             cwp.upload();
         }
@@ -572,3 +748,4 @@ public class TrailTextureManager {
         worldOffsetZ = 0;
     }
 }
+

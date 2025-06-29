@@ -36,6 +36,7 @@ import com.elfoteo.crysis.screen.custom.PedestalScreen;
 import com.elfoteo.crysis.sound.ModSounds;
 import com.elfoteo.crysis.util.ModItemProperties;
 import com.elfoteo.crysis.util.InfraredShader;
+import com.elfoteo.crysis.util.TrailTextureManager;
 import com.elfoteo.crysis.villager.ModVillagers;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderers;
@@ -88,6 +89,7 @@ public class CrysisMod {
         if (FMLLoader.getDist() == Dist.CLIENT){
             modEventBus.register(InfraredShader.class);
             NeoForge.EVENT_BUS.register(PowerJumpUpgradeClient.class);
+            NeoForge.EVENT_BUS.register(TrailTextureManager.class);
         }
 
         ModCreativeModeTabs.register(modEventBus);

@@ -166,10 +166,8 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
                 this.yTransparentOld = y;
                 this.zTransparentOld = z;
                 int l = 0;
-                ObjectListIterator var21 = this.visibleSections.iterator();
 
-                while(var21.hasNext()) {
-                    SectionRenderDispatcher.RenderSection sectionrenderdispatcher$rendersection = (SectionRenderDispatcher.RenderSection)var21.next();
+                for (SectionRenderDispatcher.RenderSection sectionrenderdispatcher$rendersection : this.visibleSections) {
                     if (l < 15 && (flag || sectionrenderdispatcher$rendersection.isAxisAlignedWith(i, j, k)) && sectionrenderdispatcher$rendersection.resortTransparency(renderType, this.sectionRenderDispatcher)) {
                         ++l;
                     }
