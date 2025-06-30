@@ -43,9 +43,23 @@ public abstract class RenderTypeMixin {
     }
 
     @Inject(method = "beaconBeam", at=@At("HEAD"), cancellable = true)
-    private static void entitySolid(ResourceLocation location, boolean colorFlag, CallbackInfoReturnable<RenderType> cir) {
+    private static void beaconBeam(ResourceLocation location, boolean colorFlag, CallbackInfoReturnable<RenderType> cir) {
         if (InfraredShader.INFRARED_BEACON_BEAM == null) return;
         if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getData(ModAttachments.SUIT_MODE) != SuitModes.VISOR.get()) return;
         cir.setReturnValue(InfraredShader.INFRARED_BEACON_BEAM.apply(location, colorFlag));
+    }
+
+    @Inject(method = "entityTranslucent(Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraft/client/renderer/RenderType;", at=@At("HEAD"), cancellable = true)
+    private static void entityTranslucent(ResourceLocation location, CallbackInfoReturnable<RenderType> cir) {
+        if (InfraredShader.INFRARED_ENTITY_SHADER == null) return;
+        if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getData(ModAttachments.SUIT_MODE) != SuitModes.VISOR.get()) return;
+        cir.setReturnValue(InfraredShader.INFRARED_RENDER_TYPE_ENTITY_GENERIC.apply(location, true));
+    }
+
+    @Inject(method = "entityTranslucent(Lnet/minecraft/resources/ResourceLocation;Z)Lnet/minecraft/client/renderer/RenderType;", at=@At("HEAD"), cancellable = true)
+    private static void entityTranslucent(ResourceLocation location, boolean outline, CallbackInfoReturnable<RenderType> cir) {
+        if (InfraredShader.INFRARED_ENTITY_SHADER == null) return;
+        if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getData(ModAttachments.SUIT_MODE) != SuitModes.VISOR.get()) return;
+        cir.setReturnValue(InfraredShader.INFRARED_RENDER_TYPE_ENTITY_GENERIC.apply(location, outline));
     }
 }
