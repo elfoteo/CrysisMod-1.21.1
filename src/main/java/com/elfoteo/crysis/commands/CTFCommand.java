@@ -18,7 +18,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 public class CTFCommand {
@@ -27,7 +26,7 @@ public class CTFCommand {
         LiteralArgumentBuilder<CommandSourceStack> ctfCommand = Commands.literal("ctf")
                 .requires(source -> source.hasPermission(2))
 
-                // — getScore subcommand (unchanged) —
+                // getScore
                 .then(Commands.literal("getScore")
                         .executes(context -> {
                             ServerLevel overworld = context.getSource().getServer().overworld();
@@ -42,7 +41,7 @@ public class CTFCommand {
                         })
                 )
 
-                // — setScore subcommand (unchanged) —
+                // setScore
                 .then(Commands.literal("setScore")
                         .then(Commands.argument("team", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"red", "blue"}, builder))
@@ -75,30 +74,23 @@ public class CTFCommand {
                         )
                 )
 
-                // — reset subcommand, now enhanced to also reset owners and clear surrounding blocks —
+                // reset
                 .then(Commands.literal("reset")
                         .executes(context -> {
                             ServerLevel overworld = context.getSource().getServer().overworld();
                             CTFData data = CTFData.getOrCreate(overworld);
 
-                            // 1) Reset both team scores
                             data.resetScores();
 
-                            // 2) For each flag, reset its owner to NONE and clear wool/concrete in the radius=6 disk
                             for (FlagInfo flag : data.getFlags()) {
                                 BlockPos flagPos = flag.getPos();
-                                // Reset owner
                                 data.setFlagOwner(flagPos, Team.NONE);
                                 BlockEntity be = overworld.getBlockEntity(flagPos);
-                                if (be instanceof FlagBlockEntity flagBE){
+                                if (be instanceof FlagBlockEntity flagBE) {
                                     flagBE.reset();
                                 }
-
-
-
                             }
 
-                            // 3) Send feedback to command sender
                             context.getSource().sendSuccess(
                                     () -> Component.literal("Reset both scores to 0, cleared all flag owners, and removed surrounding flag blocks."),
                                     true
@@ -107,7 +99,7 @@ public class CTFCommand {
                         })
                 )
 
-                // — setFlagName subcommand (unchanged) —
+                // setFlagName
                 .then(Commands.literal("setFlagName")
                         .then(Commands.argument("name", StringArgumentType.string())
                                 .executes(context -> {
@@ -118,7 +110,6 @@ public class CTFCommand {
 
                                     BlockPos origin = player.blockPosition();
                                     int range = 5;
-
                                     boolean foundAny = false;
                                     CTFData data = CTFData.getOrCreate(level);
 
@@ -148,6 +139,34 @@ public class CTFCommand {
                                     return 1;
                                 })
                         )
+                )
+
+                // enable
+                .then(Commands.literal("enable")
+                        .executes(context -> {
+                            ServerLevel overworld = context.getSource().getServer().overworld();
+                            CTFData data = CTFData.getOrCreate(overworld);
+                            data.enable();
+                            context.getSource().sendSuccess(
+                                    () -> Component.literal("CTF has been enabled."),
+                                    true
+                            );
+                            return 1;
+                        })
+                )
+
+                // disable
+                .then(Commands.literal("disable")
+                        .executes(context -> {
+                            ServerLevel overworld = context.getSource().getServer().overworld();
+                            CTFData data = CTFData.getOrCreate(overworld);
+                            data.disable();
+                            context.getSource().sendSuccess(
+                                    () -> Component.literal("CTF has been disabled."),
+                                    true
+                            );
+                            return 1;
+                        })
                 );
 
         dispatcher.register(ctfCommand);

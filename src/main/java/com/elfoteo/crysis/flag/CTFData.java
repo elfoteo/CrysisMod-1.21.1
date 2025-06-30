@@ -19,14 +19,14 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 /**
- * World?s saved data for Capture-the-Flag, plus a client-only in-memory copy.
+ * World's saved data for Capture-the-Flag, plus a client-only in-memory copy.
  *
  * On the server, this class is loaded/saved via SavedData (the usual world-storage path).
  * Anytime a flag or score changes, we immediately send a CTFDataPacket to all players.
  *
  * On the client, a separate static instance is managed (never written to disk), which can be
  * updated via incoming CTFDataPacket. All consumers (client or server) may call getters like
- * getFlags(), getRedScore(), etc. To push a brand-new set of flags (e.g. from a ?SYNC ALL? packet),
+ * getFlags(), getRedScore(), etc. To push a brand-new set of flags (e.g. from a "SYNC ALL" packet),
  * simply call setAllFlags(...) on the client instance.
  */
 public class CTFData extends SavedData {
@@ -37,9 +37,10 @@ public class CTFData extends SavedData {
     private final Map<BlockPos, FlagInfo> flags = new HashMap<>();
     private int redScore = 0;
     private int blueScore = 0;
+    private boolean ctfEnabled = true; // CTF mode enabled by default
 
     // ------------------------------------------------------------------------------------
-    // Client-side ?singleton?:
+    // Client-side "singleton":
     //   - on the client, we never persist to disk; instead, getOrCreateClient() will produce
     //     an in-memory instance. Whenever a full sync arrives, call setClientFlags(...).
     // ------------------------------------------------------------------------------------
@@ -84,14 +85,51 @@ public class CTFData extends SavedData {
 
     /**
      * Completely replaces the client-side flag-map (and scores) with these values.
-     * Call this when you receive a ?sync all flags + scores? from the server.
+     * Call this when you receive a "sync all flags + scores" from the server.
      */
-    public static void setClientFlags(Collection<FlagInfo> newFlags, int newRedScore, int newBlueScore) {
+    public static void setClientFlags(Collection<FlagInfo> newFlags, int newRedScore, int newBlueScore, boolean enabled) {
         CTFData clientData = getOrCreateClient();
         clientData.setAllFlags(newFlags);
         clientData.redScore = newRedScore;
         clientData.blueScore = newBlueScore;
+        clientData.ctfEnabled = enabled;
         // No need to push updates from client
+    }
+
+    // ------------------------------------------------------------------------------------
+    // CTF Enable/Disable Methods:
+    // ------------------------------------------------------------------------------------
+
+    /**
+     * Enables the capture-the-flag mode.
+     * When enabled, flag interactions and scoring will work normally.
+     */
+    public void enable() {
+        if (!ctfEnabled) {
+            ctfEnabled = true;
+            this.setDirty();
+            sendUpdateToClients();
+        }
+    }
+
+    /**
+     * Disables the capture-the-flag mode.
+     * When disabled, flag interactions and scoring will be suspended.
+     * Existing flags and scores are preserved but no new captures or scoring will occur.
+     */
+    public void disable() {
+        if (ctfEnabled) {
+            ctfEnabled = false;
+            this.setDirty();
+            sendUpdateToClients();
+        }
+    }
+
+    /**
+     * Returns whether CTF mode is currently enabled.
+     */
+    public boolean isEnabled() {
+        return ctfEnabled;
     }
 
     // ------------------------------------------------------------------------------------
@@ -103,6 +141,7 @@ public class CTFData extends SavedData {
         // Write scores:
         tag.putInt("redScore", redScore);
         tag.putInt("blueScore", blueScore);
+        tag.putBoolean("ctfEnabled", ctfEnabled);
 
         // Write each FlagInfo into a ListTag:
         ListTag list = new ListTag();
@@ -129,6 +168,7 @@ public class CTFData extends SavedData {
         CTFData data = new CTFData();
         data.redScore = tag.getInt("redScore");
         data.blueScore = tag.getInt("blueScore");
+        data.ctfEnabled = tag.getBoolean("ctfEnabled"); // Load enabled state, defaults to false if not present
 
         ListTag list = tag.getList("flagEntries", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
@@ -146,13 +186,13 @@ public class CTFData extends SavedData {
         return data;
     }
 
-    /** Factory for world?s DataStorage. */
+    /** Factory for world's DataStorage. */
     public static CTFData create() {
         return new CTFData();
     }
 
     // ------------------------------------------------------------------------------------
-    // Server-side getter: fetch (or create) the world?s CTF data.
+    // Server-side getter: fetch (or create) the world's CTF data.
     // Always calls validateFlags(...) and returns the SavedData instance.
     // ------------------------------------------------------------------------------------
 
@@ -221,14 +261,19 @@ public class CTFData extends SavedData {
 
     /**
      * Called by server when a particular flag flips (red/blue/NONE).
-     * If no FlagInfo existed at pos, create one with a random ?UnnamedXX? name.
-     * If old owner was NONE and new is RED/BLUE, increment that team?s score.
+     * If CTF is disabled, this method will return early without making changes.
+     * If no FlagInfo existed at pos, create one with a random "UnnamedXX" name.
+     * If old owner was NONE and new is RED/BLUE, increment that team's score.
      * Otherwise, just set the owner and mark dirty.
      */
     public void setFlagOwner(BlockPos pos, Team newTeam) {
+        if (!ctfEnabled) {
+            return; // Do nothing if CTF is disabled
+        }
+
         FlagInfo info = flags.get(pos);
         if (info == null) {
-            // First time we see this flag: assign a random ?Unnamed##? name
+            // First time we see this flag: assign a random "Unnamed##" name
             String randomName = "Unnamed" + (new Random().nextInt() & 0x7F);
             info = new FlagInfo(pos, randomName, newTeam);
             if (newTeam == Team.RED) {
@@ -296,12 +341,18 @@ public class CTFData extends SavedData {
     }
 
     public void incrementRedScore(int amount) {
+        if (!ctfEnabled) {
+            return; // Do nothing if CTF is disabled
+        }
         this.redScore += amount;
         this.setDirty();
         sendUpdateToClients();
     }
 
     public void incrementBlueScore(int amount) {
+        if (!ctfEnabled) {
+            return; // Do nothing if CTF is disabled
+        }
         this.blueScore += amount;
         this.setDirty();
         sendUpdateToClients();
@@ -314,8 +365,11 @@ public class CTFData extends SavedData {
         sendUpdateToClients();
     }
 
-    /** Convenience: add to whichever team?s score. */
+    /** Convenience: add to whichever team's score. */
     public void incrementScore(Team owner, int amount) {
+        if (!ctfEnabled) {
+            return; // Do nothing if CTF is disabled
+        }
         switch (owner) {
             case RED -> incrementRedScore(amount);
             case BLUE -> incrementBlueScore(amount);
@@ -333,7 +387,7 @@ public class CTFData extends SavedData {
             return; // Do not send from client
         }
         List<FlagInfo> snapshot = new ArrayList<>(flags.values());
-        CTFDataPacket packet = new CTFDataPacket(snapshot, redScore, blueScore);
+        CTFDataPacket packet = new CTFDataPacket(snapshot, redScore, blueScore, ctfEnabled);
         PacketDistributor.sendToAllPlayers(packet);
     }
 
@@ -342,7 +396,7 @@ public class CTFData extends SavedData {
             return; // Do not send from client
         }
         List<FlagInfo> snapshot = new ArrayList<>(flags.values());
-        CTFDataPacket packet = new CTFDataPacket(snapshot, redScore, blueScore);
+        CTFDataPacket packet = new CTFDataPacket(snapshot, redScore, blueScore, ctfEnabled);
         PacketDistributor.sendToPlayer(player, packet);
     }
 }

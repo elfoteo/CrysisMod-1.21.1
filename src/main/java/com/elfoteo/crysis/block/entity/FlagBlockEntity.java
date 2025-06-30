@@ -115,6 +115,7 @@ public class FlagBlockEntity extends BlockEntity {
 
     public static <T extends BlockEntity> void serverTick(Level level, BlockPos pos, BlockState state, T be) {
         if (!(level instanceof ServerLevel serverLevel) || !(be instanceof FlagBlockEntity flag)) return;
+        if (!CTFData.getOrCreate(serverLevel).isEnabled()) return;
 
         flag.ensureDiskIntegrity(serverLevel);
         Map<Team, Integer> playerCounts = flag.countPlayers(serverLevel);

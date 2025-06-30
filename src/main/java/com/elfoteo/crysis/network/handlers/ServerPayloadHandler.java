@@ -170,7 +170,8 @@ public class ServerPayloadHandler {
         CTFDataPacket packet = new CTFDataPacket(
                 data.getFlags().stream().toList(),
                 data.getBlueScore(),
-                data.getRedScore()
+                data.getRedScore(),
+                data.isEnabled()
         );
         PacketDistributor.sendToPlayer(player, packet);
     }

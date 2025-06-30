@@ -11,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public record CTFDataPacket(List<FlagInfo> flags, int redScore, int blueScore) implements CustomPacketPayload {
+public record CTFDataPacket(List<FlagInfo> flags, int redScore, int blueScore, boolean ctfEnabled) implements CustomPacketPayload {
     public static final Type<CTFDataPacket> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "flag_info")
     );
@@ -23,6 +23,8 @@ public record CTFDataPacket(List<FlagInfo> flags, int redScore, int blueScore) i
             CTFDataPacket::blueScore,
             ByteBufCodecs.VAR_INT,
             CTFDataPacket::blueScore,
+            ByteBufCodecs.BOOL,
+            CTFDataPacket::ctfEnabled,
             CTFDataPacket::new
     );
 

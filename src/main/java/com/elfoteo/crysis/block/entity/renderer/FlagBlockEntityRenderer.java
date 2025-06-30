@@ -3,6 +3,7 @@ package com.elfoteo.crysis.block.entity.renderer;
 
 import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.block.entity.FlagBlockEntity;
+import com.elfoteo.crysis.flag.CTFData;
 import com.elfoteo.crysis.flag.Team;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -50,6 +51,7 @@ public class FlagBlockEntityRenderer implements BlockEntityRenderer<FlagBlockEnt
                        MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
         Level level = flagBE.getLevel();
         if (level == null) return;
+        if (!CTFData.getOrCreateClient().isEnabled()) return;
 
         BlockPos pos = flagBE.getBlockPos();
         int flagY = pos.getY();

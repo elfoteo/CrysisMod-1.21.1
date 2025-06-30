@@ -126,7 +126,7 @@ public class ClientPayloadHandler {
     }
 
     public static void handleAllFlagsPacket(CTFDataPacket packet, IPayloadContext context) {
-        CTFData.setClientFlags(packet.flags(), packet.redScore(), packet.blueScore());
+        CTFData.setClientFlags(packet.flags(), packet.redScore(), packet.blueScore(), packet.ctfEnabled());
         System.out.println("New flag data received from the server");
         for (FlagInfo flag : packet.flags()){
             System.out.println(flag);
