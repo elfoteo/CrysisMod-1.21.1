@@ -252,7 +252,6 @@ public class NanosuitUpgrades {
 
         DamageSource source = event.getSource();
 
-        // Check it's a true melee hit: direct entity must be the player and the source type is PLAYER_ATTACK
         if (!source.is(DamageTypes.PLAYER_ATTACK) || source.getDirectEntity() != player) return;
 
         if (SkillData.isUnlocked(Skill.KINETIC_PUNCH, player)) {
@@ -261,28 +260,25 @@ public class NanosuitUpgrades {
             float damage = event.getAmount();
 
             if (target != player && !target.isAlliedTo(player)) {
-                // Instantly kill weak mobs (less than 6 HP)
                 if (health < 6.0f) {
-                    event.setAmount(health + 1.0f); // Overkill to ensure death
+                    event.setAmount(health + 1.0f);
                 }
 
-                // Apply horizontal knockback
-                Vec3 dir = target.position().subtract(player.position()).normalize().scale(1.0);
-                target.push(dir.x, 0.3, dir.z);
+                if (target.distanceToSqr(player) <= 25.0) {
+                    Vec3 dir = target.position().subtract(player.position()).normalize().scale(1.0);
+                    target.push(dir.x, 0.3, dir.z);
+                }
             }
         }
 
-        // Power Surge enhancement
         UUID uuid = player.getUUID();
         if (SkillData.isUnlocked(Skill.POWER_SURGE, player) &&
                 powerSurgeTimers.containsKey(uuid) &&
                 !powerSurgeUsed.contains(uuid)) {
 
-            // Apply +50% bonus
             event.setAmount(event.getAmount() * 1.5f);
             powerSurgeUsed.add(uuid);
 
-            // Visual feedback
             if (player.level() instanceof ServerLevel level) {
                 level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(), 10, 0.3, 0.3, 0.3, 0.2);
                 level.playSound(null, player.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.4f, 1.5f);
