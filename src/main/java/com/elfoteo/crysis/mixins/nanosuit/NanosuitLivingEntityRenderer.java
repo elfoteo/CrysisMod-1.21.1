@@ -37,6 +37,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.joml.Matrix3f;
@@ -53,6 +55,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
 
+@OnlyIn(Dist.CLIENT)
 @Mixin(LivingEntityRenderer.class)
 public abstract class NanosuitLivingEntityRenderer<T extends LivingEntity, M extends EntityModel<T>> implements RenderLayerParent<T, M> {
 

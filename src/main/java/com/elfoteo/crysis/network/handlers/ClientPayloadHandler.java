@@ -38,6 +38,7 @@ public class ClientPayloadHandler {
         });
     }
 
+    @OnlyIn(Dist.CLIENT)
     public static void handleSuitModePacket(SuitModePacket packet, IPayloadContext context) {
         Player mainPlayer = Minecraft.getInstance().player;
         if (mainPlayer == null) {
@@ -70,11 +71,11 @@ public class ClientPayloadHandler {
     }
 
     public static void handleGetResetSkillsPacket(ResetSkillsPacket packet, IPayloadContext context) {
-        Player player = Minecraft.getInstance().player;
-        if (player == null) {
-            return;
-        }
         context.enqueueWork(() -> {
+            Player player = Minecraft.getInstance().player;
+            if (player == null || Minecraft.getInstance().level == null) {
+                return;
+            }
             // Reset ALL_SKILLS to default locked state
             Map<Skill, SkillState> defaultSkills = new EnumMap<>(Skill.class);
             for (Skill s : Skill.values()) {

@@ -4,11 +4,8 @@ import com.elfoteo.crysis.nanosuit.Nanosuit;
 import com.elfoteo.crysis.skill.Skill;
 import com.elfoteo.crysis.skill.SkillData;
 import com.elfoteo.crysis.util.SuitModes;
-import com.elfoteo.crysis.util.SuitUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -22,11 +19,11 @@ import net.neoforged.neoforge.event.entity.living.LivingEvent;
 import java.util.Map;
 import java.util.WeakHashMap;
 
+@OnlyIn(Dist.CLIENT)
 @EventBusSubscriber(modid = "crysis", bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public class PowerJumpUpgradeClient {
-    private static final float BASE_JUMP_COST = 20f;
 
-    /** Tracks “charge amount” from 0→1 while crouching (client‐side). */
+    /** Tracks "charge amount" from 0→1 while crouching (client‐side). */
     private static final Map<Player, Float> jumpChargeMap = new WeakHashMap<>();
 
     public static float getCurrentJumpCharge(Player player) {
@@ -65,9 +62,11 @@ public class PowerJumpUpgradeClient {
 
     /**
      * Client‐side hook: apply actual motion when the local player executes a power jump.
-     * The “charge” used here was built up in onPlayerTick.
+     * The "charge" used here was built up in onPlayerTick.
+     *
+     * IMPORTANT: In multiplayer, we DON'T drain energy here - only the server should do that.
+     * We just apply the movement and let the server validate/sync the energy.
      */
-    @OnlyIn(Dist.CLIENT)
     @SubscribeEvent
     public static void onClientJump(LivingEvent.LivingJumpEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
@@ -77,16 +76,13 @@ public class PowerJumpUpgradeClient {
         if (!player.isCrouching()) return;
         if (Nanosuit.currentClientMode == SuitModes.NOT_EQUIPPED.get()) return;
 
-        // Drain energy clientside as well
-        float cost = BASE_JUMP_COST;
-        if (SkillData.isUnlocked(Skill.EFFICIENT_BURST, player)) {
-            cost *= 0.7f;
-        }
-        if (!SuitUtils.tryDrainEnergy(player, cost)) {
-            return;
-        }
+        // REMOVED: Energy draining on client - this should only happen on server
+        // The server will validate energy and sync it back to the client
 
         float charge = getCurrentJumpCharge(player);
+
+        // Don't apply movement if charge is too low
+        if (charge < 0.1f) return;
 
         // Compute jump vectors
         float pitch = player.getXRot() * ((float) Math.PI / 180f);

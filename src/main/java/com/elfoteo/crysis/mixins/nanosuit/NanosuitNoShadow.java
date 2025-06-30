@@ -7,6 +7,8 @@ import net.minecraft.world.entity.Entity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.LevelReader;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,6 +21,7 @@ import com.elfoteo.crysis.attachments.*;
  * effect,
  * the shadow rendering is cancelled.
  */
+@OnlyIn(Dist.CLIENT)
 @Mixin(EntityRenderDispatcher.class)
 public class NanosuitNoShadow {
     @Inject(method = "renderShadow", at = @At("HEAD"), cancellable = true)

@@ -37,6 +37,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = CrysisMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public class Nanosuit {
+    //@OnlyIn(Dist.CLIENT)
     public static int currentClientMode = SuitModes.NOT_EQUIPPED.get();
     public static int previousClientMode = SuitModes.ARMOR.get();
     private static boolean firstTick = true;
@@ -287,19 +288,28 @@ public class Nanosuit {
         event.setAmount(reducedDamage);
     }
 
+    @OnlyIn(Dist.CLIENT)
     @SubscribeEvent
     public static void onEquipmentChange(LivingEquipmentChangeEvent event) {
         if (event.getSlot().getType() == EquipmentSlot.Type.HUMANOID_ARMOR && event.getEntity() instanceof Player player) {
             if (SuitUtils.isWearingFullNanosuit(player)) {
                 player.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
-                if (player.level().isClientSide) {
-                    currentClientMode = SuitModes.ARMOR.get();
-                } else {
-                    PacketDistributor.sendToPlayer((ServerPlayer) player, new SuitModePacket(
-                            player.getId(),
-                            SuitModes.ARMOR.get()
-                    ));
-                }
+                currentClientMode = SuitModes.ARMOR.get();
+            }
+        }
+    }
+
+    @OnlyIn(Dist.DEDICATED_SERVER)
+    @SubscribeEvent
+    public static void onEquipmentChangeServer(LivingEquipmentChangeEvent event) {
+        if (event.getSlot().getType() == EquipmentSlot.Type.HUMANOID_ARMOR && event.getEntity() instanceof Player player) {
+            if (SuitUtils.isWearingFullNanosuit(player)) {
+                player.setData(ModAttachments.SUIT_MODE, SuitModes.ARMOR.get());
+
+                PacketDistributor.sendToPlayer((ServerPlayer) player, new SuitModePacket(
+                        player.getId(),
+                        SuitModes.ARMOR.get()
+                ));
             }
         }
     }
