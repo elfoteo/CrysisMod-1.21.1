@@ -55,9 +55,9 @@ float computeEntityHeatAt(vec3 pos) {
 
         vec3 d = pos - ep;
         // now divide by the same radius in all axes
-        vec3 nd = d / 3;
+        vec3 nd = d / 3.5;
         // falloff = r + r = 2r
-        float t = clamp(1.0 - dot(nd, nd) * 5, 0.0, 1.0);
+        float t = clamp(1.0 - dot(nd, nd) * (2.0 * 3.5), 0.0, 1.0);
 
         best = max(best, t);
     }
@@ -74,9 +74,9 @@ void main() {
     float combined   = max(lightHeat, entityHeat);
 
     ivec3 blockPos = ivec3(
-    floor(absPos.x + 64.0),
-    floor(absPos.y + 64.0),
-    floor(absPos.z + 64.0)
+    floor(absPos.x),
+    floor(absPos.y),
+    floor(absPos.z)
     );
     blockPos.x -= u_worldOffsetX;
     blockPos.y -= u_worldOffsetY;

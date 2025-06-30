@@ -34,6 +34,7 @@
     "nanosuit.infrared.ModelRenderMixin",
     "nanosuit.infrared.PaintingRendererMixin",
     "nanosuit.infrared.RenderTypeMixin",
+    "nanosuit.infrared.ShulkerBoxRendererMixin",
     "nanosuit.infrared.SignRendererMixin",
     "nanosuit.infrared.SkullBlockRenderMixin",
     "nanosuit.upgrades.NanosuitVisorInsightsMixin",

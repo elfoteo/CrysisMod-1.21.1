@@ -188,9 +188,9 @@ public class TrailTextureManager {
         // Compute initial worldOffset so the camera is at the center
         // -------------------------------------------------------------
         Vec3 camPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
-        int camBlockX = (int) Math.floor(camPos.x + 64);
-        int camBlockY = (int) Math.floor(camPos.y + 64);
-        int camBlockZ = (int) Math.floor(camPos.z + 64);
+        int camBlockX = (int) Math.floor(camPos.x);
+        int camBlockY = (int) Math.floor(camPos.y);
+        int camBlockZ = (int) Math.floor(camPos.z);
 
         worldOffsetX = camBlockX - (trailTexWidth  / 2);  // 256 = 512/2
         worldOffsetY = camBlockY - (trailTexDepth  / 2);  // 192 = 384/2
@@ -219,9 +219,9 @@ public class TrailTextureManager {
         int textureCenterY = worldOffsetY + (trailTexDepth  / 2);
         int textureCenterZ = worldOffsetZ + (trailTexHeight / 2);
 
-        int camBlockX = (int) Math.floor(currentCameraPos.x + 64);
-        int camBlockY = (int) Math.floor(currentCameraPos.y + 64);
-        int camBlockZ = (int) Math.floor(currentCameraPos.z + 64);
+        int camBlockX = (int) Math.floor(currentCameraPos.x);
+        int camBlockY = (int) Math.floor(currentCameraPos.y);
+        int camBlockZ = (int) Math.floor(currentCameraPos.z);
 
         int deltaX = camBlockX - textureCenterX;
         int deltaY = camBlockY - textureCenterY;
