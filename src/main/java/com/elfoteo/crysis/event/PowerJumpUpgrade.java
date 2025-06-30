@@ -71,7 +71,6 @@ public class PowerJumpUpgrade {
         // Only run on the server
         if (event.getEntity().level().isClientSide) return;
         if (!(event.getEntity() instanceof ServerPlayer player)) {
-            System.out.println("Entity is not a ServerPlayer");
             return;
         }
         if (!SkillData.isUnlocked(Skill.POWER_JUMP, player)) {
