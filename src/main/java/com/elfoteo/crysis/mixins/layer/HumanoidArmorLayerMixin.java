@@ -15,6 +15,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.Model;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -46,11 +47,14 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
                                int dyeColor,
                                ResourceLocation textureLocation,
                                CallbackInfo ci) {
+        LocalPlayer mainPlayer = Minecraft.getInstance().player;
         Player player = RenderState.currentlyRenderingPlayer;
-        if (player != null && SuitUtils.isWearingFullNanosuit(player)) {
+        if (player != null && SuitUtils.isWearingFullNanosuit(player) && mainPlayer != null) {
             int modeVal = player.getData(ModAttachments.SUIT_MODE);
             SuitModes mode = SuitModes.from(modeVal);
-            if (!RenderState.isRenderingMainPlayer && mode == SuitModes.CLOAK) {
+            int mainModeVal = mainPlayer.getData(ModAttachments.SUIT_MODE);
+            SuitModes mainMode = SuitModes.from(mainModeVal);
+            if (!RenderState.isRenderingMainPlayer && mode == SuitModes.CLOAK && mainMode != SuitModes.VISOR) {
                 ci.cancel();
                 return;
             }
