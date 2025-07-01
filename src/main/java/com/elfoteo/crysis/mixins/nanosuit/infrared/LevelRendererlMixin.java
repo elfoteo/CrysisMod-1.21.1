@@ -144,13 +144,6 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
         RenderSystem.assertOnRenderThread();
         renderType.setupRenderState();
 
-        // Ensure our 3D trail texture exists
-        TrailTextureManager.allocateOrResizeIfNeeded();
-
-        // Possibly shift texture (if camera moved far enough)
-        Vec3 currentCameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
-        TrailTextureManager.updateTexturePosition(currentCameraPos);
-
         // Vanilla translucent sorting (unchanged)
         if (renderType == RenderType.translucent()) {
             this.minecraft.getProfiler().push("translucent_sort");
@@ -230,10 +223,6 @@ public abstract class LevelRendererlMixin implements SetSectionRenderDispatcher 
             chunkOffset.set(0f, 0f, 0f);
             chunkOffset.upload();
         }
-
-        // Restore GL state (unbind image unit, restore texture bindings)
-        //     (now inside TrailTextureManager)
-        TrailTextureManager.unbindAfterRender();
 
         // Cleanup: clear shader, unbind VB, pop profiler, cancel
         shaderInstance.clear();
