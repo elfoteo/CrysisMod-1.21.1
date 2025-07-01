@@ -237,13 +237,13 @@ public class InfraredShader {
                     ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_entity"),
                     DefaultVertexFormat.POSITION_COLOR);
 
-            INFRARED_PLASMA_SHADER.safeGetUniform("u_Heat").set(+1.25f);
+            INFRARED_PLASMA_SHADER.safeGetUniform("u_Heat").set(+1.2f);
 
             INFRARED_COLD_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_entity"),
                     DefaultVertexFormat.POSITION_COLOR);
 
-            INFRARED_COLD_SHADER.safeGetUniform("u_Heat").set(-0.95f);
+            INFRARED_COLD_SHADER.safeGetUniform("u_Heat").set(-0.6f);
 
             INFRARED_BEACON_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_beacon"),
