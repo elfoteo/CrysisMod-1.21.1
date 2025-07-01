@@ -139,7 +139,7 @@ public class InfraredShader {
     public static RenderStateShard.ShaderStateShard INFRARED_ITEM_SHADER_SHARD;
 
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_ENTITY_GENERIC;
-    private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_UNDEAD_GENERIC;
+    public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_UNDEAD_GENERIC;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_PLASMA;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_COLD;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_TRANSLUCENT;

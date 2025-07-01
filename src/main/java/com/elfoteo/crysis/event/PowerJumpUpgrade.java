@@ -74,7 +74,6 @@ public class PowerJumpUpgrade {
             return;
         }
         if (!SkillData.isUnlocked(Skill.POWER_JUMP, player)) {
-            System.out.println("POWER_JUMP not unlocked");
             return;
         }
         if (!player.isCrouching()) {

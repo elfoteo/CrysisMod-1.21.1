@@ -24,6 +24,7 @@
     "nanosuit.infrared.BlockRenderDispatcherMixin",
     "nanosuit.infrared.ChestRendererMixin",
     "nanosuit.infrared.ClientLevelMixin",
+    "nanosuit.infrared.EnchantTableRendererMixin",
     "nanosuit.infrared.ExperienceOrbRendererMixin",
     "nanosuit.infrared.FogRendererMixin",
     "nanosuit.infrared.HangingSignRendererMixin",

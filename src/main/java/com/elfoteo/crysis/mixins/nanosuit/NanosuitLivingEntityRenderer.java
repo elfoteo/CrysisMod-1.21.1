@@ -79,8 +79,9 @@ public abstract class NanosuitLivingEntityRenderer<T extends LivingEntity, M ext
             boolean isUs = entity == mc.player;
             RenderState.isRenderingMainPlayer = isUs;
             RenderState.currentlyRenderingPlayer = player;
-            // Cloak mode: hide all other players, allow us to see ourselves
-            if (isCloak && !isUs) {
+
+            // Cloak mode: hide all other players unless we are in VISOR mode or rendering ourselves
+            if (isCloak && !isUs && !isVisor) {
                 ci.cancel();
                 return;
             }
@@ -91,7 +92,7 @@ public abstract class NanosuitLivingEntityRenderer<T extends LivingEntity, M ext
         }
 
         // Trigger pre-render event
-        if (!((RenderLivingEvent.Pre) NeoForge.EVENT_BUS.post(
+        if (!((RenderLivingEvent.Pre<?, ?>) NeoForge.EVENT_BUS.post(
                 new RenderLivingEvent.Pre(entity, (LivingEntityRenderer<?, ?>) (Object) this,
                         partialTicks, poseStack, buffer, packedLight))).isCanceled()) {
 
