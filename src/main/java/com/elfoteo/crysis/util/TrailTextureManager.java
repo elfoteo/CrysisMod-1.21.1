@@ -162,7 +162,7 @@ public class TrailTextureManager {
         Quaternionf q = cam.rotation().conjugate(new Quaternionf());
         Matrix4f view = new Matrix4f().rotation(q);
         float partial = mc.getTimer().getGameTimeDeltaPartialTick(true);
-        double fov = getFov(cam, partial, true);
+        double fov = getFov(cam, partial, true) * 1.5f;
         Frustum frustum = new Frustum(view, mc.gameRenderer.getProjectionMatrix(Math.max(fov, mc.options.fov().get())));
         frustum.prepare(camPos.x, camPos.y, camPos.z);
 
