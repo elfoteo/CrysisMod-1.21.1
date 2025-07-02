@@ -41,7 +41,7 @@ void main() {
 
     if (src.a < 0.1) discard;
 
-    float baseHeat = clamp(cameraDistance / 45.0, 0.0, 1.0) - u_Heat;
+    float baseHeat = clamp(1.0, 0.0, 1.0) - u_Heat;
     float surroundingHeat = sampleHeat(texCoord0, 1.0 / 512.0, cameraDistance);
     float blendedHeat = mix(baseHeat, surroundingHeat, 0.5);
 

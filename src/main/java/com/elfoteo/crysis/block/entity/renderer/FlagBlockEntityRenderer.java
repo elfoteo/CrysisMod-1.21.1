@@ -83,60 +83,59 @@ public class FlagBlockEntityRenderer implements BlockEntityRenderer<FlagBlockEnt
             }
         }
 
-        // 2) Determine the base beam color based on flag owner.
-        final int BASE_GRAY = 0xAAAAAA;
-        final int BASE_BLUE = 0x5555FF;
-        final int BASE_RED = 0xAA0000;
+        // 2) Determine the base beam color (RGB) based on flag owner.
+        final int RGB_GRAY = 0xAAAAAA;
+        final int RGB_BLUE = 0x5555FF;
+        final int RGB_RED  = 0xAA0000;
 
-        int baseColor;
+        int rgbBase;
         switch (flagBE.getOwner()) {
-            case RED -> baseColor = BASE_RED;
-            case BLUE -> baseColor = BASE_BLUE;
-            default -> baseColor = BASE_GRAY;
+            case RED   -> rgbBase = RGB_RED;
+            case BLUE  -> rgbBase = RGB_BLUE;
+            default    -> rgbBase = RGB_GRAY;
         }
 
-        // 3) Flash settings
-        final int FLASH_AQUA     = 0x00FFFF;
-        final int FLASH_DARK_RED = 0xFF4444;
+        // extract base components
+        int rBase = (rgbBase >> 16) & 0xFF;
+        int gBase = (rgbBase >> 8)  & 0xFF;
+        int bBase = rgbBase & 0xFF;
 
-        // We'll flash once every 5 seconds (100 ticks), with a flash duration of 0.5 seconds (10 ticks).
-        final long CYCLE_TICKS = 80L;  // 4 seconds at 20 ticks/sec
-        final long FLASH_TICKS = 20L;   // 1 second at 20 ticks/sec
+        // start with opaque base ARGB
+        int beamColor = FastColor.ARGB32.color(0xFF, rBase, gBase, bBase);
+
+        // 3) Flash settings (RGB only)
+        final int RGB_AQUA     = 0x00FFFF;
+        final int RGB_DARKRED  = 0xFF4444;
+        final long CYCLE_TICKS = 80L;  // 4s @20tps
+        final long FLASH_TICKS = 20L;  // 1s @20tps
 
         boolean onlyBluePlayers = (blueCount > 0 && redCount == 0);
         boolean onlyRedPlayers  = (redCount > 0 && blueCount == 0);
-
-        int beamColor = baseColor;
 
         if (onlyBluePlayers || onlyRedPlayers) {
             long gameTime = level.getGameTime();
             long tickInCycle = gameTime % CYCLE_TICKS;
 
             if (tickInCycle < FLASH_TICKS) {
-                // Compute an intensity from 0→1→0 over FLASH_TICKS.
+                // intensity 0→1→0 over FLASH_TICKS
                 float subTick = (tickInCycle + partialTicks) / (float) FLASH_TICKS;
                 float intensity = (float) Math.sin(subTick * Math.PI);
 
-                int targetFlash = onlyBluePlayers ? FLASH_AQUA : FLASH_DARK_RED;
-
-                int rBase = (baseColor >> 16) & 0xFF;
-                int gBase = (baseColor >> 8) & 0xFF;
-                int bBase = baseColor & 0xFF;
-
-                int rFlash = (targetFlash >> 16) & 0xFF;
-                int gFlash = (targetFlash >> 8) & 0xFF;
-                int bFlash = targetFlash & 0xFF;
+                int rgbFlash = onlyBluePlayers ? RGB_AQUA : RGB_DARKRED;
+                int rFlash = (rgbFlash >> 16) & 0xFF;
+                int gFlash = (rgbFlash >> 8)  & 0xFF;
+                int bFlash = rgbFlash & 0xFF;
 
                 int r = (int) (rBase + (rFlash - rBase) * intensity);
                 int g = (int) (gBase + (gFlash - gBase) * intensity);
                 int b = (int) (bBase + (bFlash - bBase) * intensity);
 
-                beamColor = (r << 16) | (g << 8) | b;
+                // build opaque ARGB flash color
+                beamColor = FastColor.ARGB32.color(0xFF, r, g, b);
             }
-            // else: outside FLASH_TICKS, beamColor remains baseColor
         }
 
-        // 4) Render the beacon beam with the computed beamColor.
+        // 4) Render the beacon beam with full‐alpha beamColor.
         renderBeaconBeam(stack, bufferSource, BEAM_LOCATION,
                 partialTicks, 1.0F, level.getGameTime(),
                 yOffset, height, beamColor, 0.2F, 0.25F);
@@ -234,6 +233,6 @@ public class FlagBlockEntityRenderer implements BlockEntityRenderer<FlagBlockEnt
     public @NotNull AABB getRenderBoundingBox(FlagBlockEntity blockEntity) {
         BlockPos pos = blockEntity.getBlockPos();
         return new AABB(pos.getX(), pos.getY(), pos.getZ(),
-                pos.getX() + 1.0, BeaconRenderer.MAX_RENDER_Y, pos.getZ() + 1.0);
+                pos.getX() + 1.0, 1024, pos.getZ() + 1.0);
     }
 }
