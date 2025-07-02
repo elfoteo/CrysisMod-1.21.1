@@ -129,6 +129,7 @@ public class InfraredShader {
     public static ShaderInstance INFRARED_UNDEAD_SHADER;
     public static ShaderInstance INFRARED_PLASMA_SHADER;
     public static ShaderInstance INFRARED_COLD_SHADER;
+    public static ShaderInstance INFRARED_VERY_COLD_SHADER;
     public static ShaderInstance INFRARED_BEACON_SHADER;
     public static ShaderInstance INFRARED_ARMOR_SHADER;
     public static ShaderInstance NANOSUIT_OVERLAY_SHADER;
@@ -142,6 +143,7 @@ public class InfraredShader {
     public static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_UNDEAD_GENERIC;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_PLASMA;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_COLD;
+    private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_RENDER_TYPE_VERY_COLD;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_TRANSLUCENT;
     private static BiFunction<ResourceLocation, Boolean, RenderType> INFRARED_ENTITY_CUTOUT_NO_CULL_Z_OFFSET;
     private static Function<ResourceLocation, RenderType> ARMOR_INFRARED_RENDER_TYPE;
@@ -245,6 +247,12 @@ public class InfraredShader {
 
             INFRARED_COLD_SHADER.safeGetUniform("u_Heat").set(-0.6f);
 
+            INFRARED_VERY_COLD_SHADER = new ShaderInstance(event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_entity"),
+                    DefaultVertexFormat.POSITION_COLOR);
+
+            INFRARED_VERY_COLD_SHADER.safeGetUniform("u_Heat").set(-0.8f);
+
             INFRARED_BEACON_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_beacon"),
                     DefaultVertexFormat.POSITION_COLOR);
@@ -322,6 +330,18 @@ public class InfraredShader {
             });
 
             INFRARED_RENDER_TYPE_COLD = Util.memoize((p_286166_, p_286167_) -> {
+                CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
+                        .setShaderState(new RenderStateShard.ShaderStateShard(() -> INFRARED_COLD_SHADER))
+                        .setTextureState(new RenderStateShard.TextureStateShard(p_286166_, false, false))
+                        .setTransparencyState(RenderType.NO_TRANSPARENCY)
+                        .setLightmapState(RenderType.LIGHTMAP)
+                        .setOverlayState(RenderType.OVERLAY)
+                        .setCullState(RenderType.CULL)
+                        .createCompositeState(p_286167_);
+                return RenderType.create("infrared_cold", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false, rendertype$compositestate);
+            });
+
+            INFRARED_RENDER_TYPE_VERY_COLD = Util.memoize((p_286166_, p_286167_) -> {
                 CompositeState rendertype$compositestate = RenderType.CompositeState.builder()
                         .setShaderState(new RenderStateShard.ShaderStateShard(() -> INFRARED_COLD_SHADER))
                         .setTextureState(new RenderStateShard.TextureStateShard(p_286166_, false, false))
@@ -446,6 +466,10 @@ public class InfraredShader {
 
     public static RenderType infraredColdGeneric(ResourceLocation location) {
         return INFRARED_RENDER_TYPE_COLD.apply(location, true);
+    }
+
+    public static RenderType infraredVeryColdGeneric(ResourceLocation location) {
+        return INFRARED_RENDER_TYPE_VERY_COLD.apply(location, true);
     }
 
     public static RenderType infraredPlasma(ResourceLocation location) {
