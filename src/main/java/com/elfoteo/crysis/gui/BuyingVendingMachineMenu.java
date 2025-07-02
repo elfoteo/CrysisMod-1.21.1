@@ -42,8 +42,6 @@ public class BuyingVendingMachineMenu extends AbstractContainerMenu {
     private static final int PLAYER_INVENTORY_SLOT_COUNT   = PLAYER_INVENTORY_ROW_COUNT * PLAYER_INVENTORY_COLUMN_COUNT;
     public  static final int VANILLA_SLOT_COUNT            = HOTBAR_SLOT_COUNT + PLAYER_INVENTORY_SLOT_COUNT; // 36
     public  static final int VANILLA_FIRST_SLOT_INDEX      = 0;
-    public  static final int TE_INVENTORY_FIRST_SLOT_INDEX = VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT;  // 36
-    public  static final int TE_INVENTORY_SLOT_COUNT       = TOTAL_SLOT_COUNT; // 12
 
     /**
      * Encapsulates one “trade”:
@@ -185,59 +183,59 @@ public class BuyingVendingMachineMenu extends AbstractContainerMenu {
      */
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        // Find which trade this output‐slot index belongs to (if any)
         for (Trade trade : trades) {
             if (trade.slotOutputIndex == index) {
                 ItemStackHandler teHandler = (ItemStackHandler) this.blockEntity.inventory;
+                ItemStack priceTemplate   = teHandler.getStackInSlot(trade.handlerInputIndex);
+                ItemStack outputTemplate  = teHandler.getStackInSlot(trade.handlerOutputIndex);
 
-                // 1) Fetch the price and output templates from the handler
-                ItemStack priceTemplate  = teHandler.getStackInSlot(trade.handlerInputIndex);
-                ItemStack outputTemplate = teHandler.getStackInSlot(trade.handlerOutputIndex);
-
-                // If there's no actual output template, nothing to give
                 if (outputTemplate.isEmpty()) {
                     return ItemStack.EMPTY;
                 }
 
-                int priceCount = priceTemplate.getCount();
+                int priceCount       = priceTemplate.getCount();   // cost per trade
+                int outputCount      = outputTemplate.getCount();  // output per trade
+                if (outputCount <= 0) outputCount = 1;
 
-                // 2) Determine how many the player can afford:
-                int affordableQty;
-                if (priceCount <= 0) {
-                    // If priceCount == 0, item is free → afford up to max‐stack
-                    affordableQty = outputTemplate.getMaxStackSize();
-                } else {
-                    // Count total price items in player inventory:
-                    int totalInPlayer = countInPlayer(player, priceTemplate);
-                    affordableQty = totalInPlayer / priceCount;
-                }
+                // 1) How many trades can the player afford?
+                int totalInPlayer = (priceCount > 0)
+                        ? countInPlayer(player, priceTemplate)
+                        : Integer.MAX_VALUE;  // free trades
 
-                if (affordableQty <= 0) {
-                    // Player cannot afford even one
+                int tradeCount = (priceCount > 0)
+                        ? totalInPlayer / priceCount
+                        : (outputTemplate.getMaxStackSize() / outputCount);
+
+                if (tradeCount <= 0) {
                     return ItemStack.EMPTY;
                 }
 
-                // 3) Cap at one stack of the output
-                int toPurchase = Math.min(affordableQty, outputTemplate.getMaxStackSize());
-
-                // 4) Remove all required price items from the player in one go
+                // 2) Remove exactly priceCount * tradeCount items:
                 if (priceCount > 0) {
-                    removeFromPlayer(player, priceTemplate, priceCount * toPurchase);
+                    removeFromPlayer(player, priceTemplate, priceCount * tradeCount);
                 }
 
-                // 5) Create a stack of 'toPurchase' outputs and give it to the player:
-                ItemStack toGive = outputTemplate.copy();
-                toGive.setCount(toPurchase);
-                if (!player.getInventory().add(toGive)) {
-                    player.drop(toGive, false);
+                // 3) Compute total items to give:
+                int totalToGive = outputCount * tradeCount;
+                int maxStack   = outputTemplate.getMaxStackSize();
+
+                // 4) Split into stacks of up to maxStack and hand out:
+                while (totalToGive > 0) {
+                    int giveNow = Math.min(totalToGive, maxStack);
+                    ItemStack toGive = outputTemplate.copy();
+                    toGive.setCount(giveNow);
+
+                    if (!player.getInventory().add(toGive)) {
+                        player.drop(toGive, false);
+                    }
+                    totalToGive -= giveNow;
                 }
 
-                // Return EMPTY (nothing goes “into” the container’s slot itself)
                 return ItemStack.EMPTY;
             }
         }
 
-        // If index is not one of our output‐slots, do nothing special:
+        // Not one of our output slots → default behavior
         return ItemStack.EMPTY;
     }
 
