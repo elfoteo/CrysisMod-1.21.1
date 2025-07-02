@@ -40,7 +40,7 @@ void main() {
     vec4 src = texture(Sampler0, texCoord0) * vertexColor * ColorModulator;
     if (src.a < 0.01) discard;
 
-    const float fadeEnd   = 105.0;
+    const float fadeEnd   = 125.0;
 
     // 2) compute blended heat (distance + texture)
     float baseHeat = clamp(cameraDistance / fadeEnd, 0.0, 1.0) - u_Heat;

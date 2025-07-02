@@ -231,7 +231,7 @@ public class InfraredShader {
                     ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_entity"),
                     DefaultVertexFormat.POSITION_COLOR);
 
-            INFRARED_UNDEAD_SHADER.safeGetUniform("u_Heat").set(-0.56f);
+            INFRARED_UNDEAD_SHADER.safeGetUniform("u_Heat").set(-0.2f);
 
             INFRARED_PLASMA_SHADER = new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "infrared_entity"),

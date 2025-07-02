@@ -26,13 +26,17 @@ out vec4  fragColor;
 vec3 heatColor(float t) {
     t = clamp(t, 0.0, 1.0);
     if (t < 0.33) {
-        return mix(vec3(0.0, 0.0, 0.23),
+        return mix(
+        vec3(0.0, 0.0, 0.23),
         vec3(1.0, 0.0, 0.0),
-        t / 0.33);
+        t / 0.33
+        );
     } else {
-        return mix(vec3(1.0, 0.0, 0.0),
+        return mix(
+        vec3(1.0, 0.0, 0.0),
         vec3(1.0, 1.0, 1.0),
-        (t - 0.33) / 0.67);
+        (t - 0.33) / 0.67
+        );
     }
 }
 
@@ -41,9 +45,11 @@ float computeEntityHeatAt(vec3 pos) {
     float best = 0.0;
     for (int i = 0; i < EntityCount; i++) {
         int b = i * 3;
-        vec3 ep = vec3(EntityData[b + 0],
+        vec3 ep = vec3(
+        EntityData[b + 0],
         EntityData[b + 1],
-        EntityData[b + 2]);
+        EntityData[b + 2]
+        );
         vec3 d = pos - ep;
         float distance = length(d);
         float t = exp(-pow(distance / 2.5, 4.0));
@@ -57,18 +63,31 @@ void main() {
     vec3 snappedAbs = floor(absPos);
     vec3 snappedRel = snappedAbs - CameraPos;
 
-    float lightHeat       = clamp((blockLight - 0.8) * 0.8, 0.0, 1.0);
-    float entityProximity = computeEntityHeatAt(snappedRel) * 0.35;
+    // base heat from block light
+    float lightHeat = clamp((blockLight - 0.8) * 0.8, 0.0, 1.0);
 
+    // distance from camera for attenuation
     float distanceToCamera = length(snappedRel);
+
+    // fade factor: no entity heat contribution beyond 50 blocks
+    float entityFade = clamp(1.0 - distanceToCamera / 120.0, 0.0, 1.0);
+
+    // compute entity proximity heat and attenuate by distance
+    float entityProximity = computeEntityHeatAt(snappedRel) * 0.35 * entityFade;
+
+    // additional proximity-based glow
     float fastFall = exp(-pow(distanceToCamera / 2.5, 4.0));
     float slowTail = exp(-distanceToCamera / 8.0);
     float proximity = mix(fastFall, slowTail, 0.4) * 0.35;
 
+    // combine all heat sources
     float rawHeat = clamp(lightHeat + entityProximity + proximity, 0.0, 1.0);
 
+    // apply color ramp and linear fog
     vec3 heatRGB = heatColor(rawHeat);
-    fragColor = linear_fog(vec4(heatRGB, 1.0),
+    fragColor = linear_fog(
+    vec4(heatRGB, 1.0),
     vertexDistance,
-    FogStart, FogEnd, FogColor);
+    FogStart, FogEnd, FogColor
+    );
 }
