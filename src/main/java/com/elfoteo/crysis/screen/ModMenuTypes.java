@@ -2,8 +2,6 @@ package com.elfoteo.crysis.screen;
 import com.elfoteo.crysis.CrysisMod;
 import com.elfoteo.crysis.gui.BuyingVendingMachineMenu;
 import com.elfoteo.crysis.gui.CreativeVendingMachineMenu;
-import com.elfoteo.crysis.screen.custom.GrowthChamberMenu;
-import com.elfoteo.crysis.screen.custom.PedestalMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
@@ -15,10 +13,6 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public class ModMenuTypes {
     public static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU,
             CrysisMod.MOD_ID);
-    public static final DeferredHolder<MenuType<?>, MenuType<PedestalMenu>> PEDESTAL_MENU = registerMenuType(
-            "pedestal_menu", PedestalMenu::new);
-    public static final DeferredHolder<MenuType<?>, MenuType<GrowthChamberMenu>> GROWTH_CHAMBER_MENU = registerMenuType(
-            "growth_chamber_menu", GrowthChamberMenu::new);
     public static final DeferredHolder<MenuType<?>, MenuType<CreativeVendingMachineMenu>> CREATIVE_VENDING_MACHINE_MENU = registerMenuType(
             "creative_vending_machine_menu", CreativeVendingMachineMenu::new);
 

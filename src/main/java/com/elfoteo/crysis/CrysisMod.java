@@ -13,14 +13,10 @@ import com.elfoteo.crysis.nanosuit.RegenerationSystem;
 import com.elfoteo.crysis.network.ModPackets;
 import com.elfoteo.crysis.block.ModBlocks;
 import com.elfoteo.crysis.block.entity.ModBlockEntities;
-import com.elfoteo.crysis.block.entity.renderer.PedestalBlockEntityRenderer;
 import com.elfoteo.crysis.component.ModDataComponents;
 import com.elfoteo.crysis.effect.ModEffects;
 import com.elfoteo.crysis.enchantment.ModEnchantmentEffects;
 import com.elfoteo.crysis.entity.ModEntities;
-import com.elfoteo.crysis.entity.client.ChairRenderer;
-import com.elfoteo.crysis.entity.client.GeckoRenderer;
-import com.elfoteo.crysis.entity.client.TomahawkProjectileRenderer;
 import com.elfoteo.crysis.item.ModCreativeModeTabs;
 import com.elfoteo.crysis.item.ModItems;
 import com.elfoteo.crysis.keybindings.ModKeyBindings;
@@ -31,16 +27,12 @@ import com.elfoteo.crysis.particle.ModParticles;
 import com.elfoteo.crysis.potion.ModPotions;
 import com.elfoteo.crysis.recipe.ModRecipes;
 import com.elfoteo.crysis.screen.ModMenuTypes;
-import com.elfoteo.crysis.screen.custom.GrowthChamberScreen;
-import com.elfoteo.crysis.screen.custom.PedestalScreen;
 import com.elfoteo.crysis.sound.ModSounds;
 import com.elfoteo.crysis.util.ModItemProperties;
 import com.elfoteo.crysis.util.InfraredShader;
 import com.elfoteo.crysis.util.TrailTextureManager;
 import com.elfoteo.crysis.villager.ModVillagers;
-import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderers;
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
@@ -120,12 +112,8 @@ public class CrysisMod {
     // Add the example block item to the building blocks tab
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
-            event.accept(ModItems.BISMUTH);
-            event.accept(ModItems.RAW_BISMUTH);
         }
         if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
-            event.accept(ModBlocks.BISMUTH_BLOCK);
-            event.accept(ModBlocks.BISMUTH_ORE);
         }
     }
 
@@ -161,9 +149,6 @@ public class CrysisMod {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             ModItemProperties.addCustomItemProperties();
-            EntityRenderers.register(ModEntities.GECKO.get(), GeckoRenderer::new);
-            EntityRenderers.register(ModEntities.TOMAHAWK.get(), TomahawkProjectileRenderer::new);
-            EntityRenderers.register(ModEntities.CHAIR_ENTITY.get(), ChairRenderer::new);
         }
         @SubscribeEvent
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
@@ -175,14 +160,11 @@ public class CrysisMod {
         }
         @SubscribeEvent
         public static void registerBER(EntityRenderersEvent.RegisterRenderers event) {
-            event.registerBlockEntityRenderer(ModBlockEntities.PEDESTAL_BE.get(), PedestalBlockEntityRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.FLAG_BE.get(), FlagBlockEntityRenderer::new);
             event.registerBlockEntityRenderer(ModBlockEntities.CREATIVE_VENDING_MACHINE_BE.get(), CreativeVendingMachineBlockEntityRenderer::new);
         }
         @SubscribeEvent
         public static void registerScreens(RegisterMenuScreensEvent event) {
-            event.register(ModMenuTypes.PEDESTAL_MENU.get(), PedestalScreen::new);
-            event.register(ModMenuTypes.GROWTH_CHAMBER_MENU.get(), GrowthChamberScreen::new);
             event.register(ModMenuTypes.CREATIVE_VENDING_MACHINE_MENU.get(), CreativeVendingMachineScreen::new);
             event.register(ModMenuTypes.BUYING_VENDING_MACHINE_MENU.get(), BuyingVendingMachineScreen::new);
         }

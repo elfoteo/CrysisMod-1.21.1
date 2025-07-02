@@ -10,6 +10,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ArmorMaterial;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import java.util.EnumMap;
 import java.util.List;
@@ -22,7 +23,7 @@ public class ModArmorMaterials {
                 attribute.put(ArmorItem.Type.CHESTPLATE, 9);
                 attribute.put(ArmorItem.Type.HELMET, 5);
                 attribute.put(ArmorItem.Type.BODY, 11);
-            }), 16, 2f, 0.1f, () -> ModItems.BISMUTH.get());
+            }), 16, 2f, 0.1f, () -> Items.BEDROCK);
     private static Holder<ArmorMaterial> register(String name, EnumMap<ArmorItem.Type, Integer> typeProtection,
             int enchantability, float toughness, float knockbackResistance,
             Supplier<Item> ingredientItem) {

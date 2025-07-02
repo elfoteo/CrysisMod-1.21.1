@@ -1,6 +1,0 @@
-{
-    "parent": "crysis:item/kaupen_bow",
-    "textures": {
-        "layer0": "crysis:item/kaupen_bow_pulling_1"
-    }
-}

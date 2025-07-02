@@ -1,22 +1,4 @@
-// 1.21.1	2025-05-25T17:23:06.559397832	Item Models: crysis
-0a67869468bcb5d23422313aa2b8e6a7acf9de06 assets/crysis/models/item/bar_brawl_music_disc.json
-a1440cfcd3f7f111912b91289c1be94d9bccf6c6 assets/crysis/models/item/bismuth.json
-3990a644c0eb8bb04092faccf4b46e287646d14b assets/crysis/models/item/bismuth_axe.json
-ef13c54ec491a26975d6383945c15f9ec3662007 assets/crysis/models/item/bismuth_button.json
-6ce9bef566ddf74c17223d9b704eb6c15be11b58 assets/crysis/models/item/bismuth_door.json
-fa592039ef4e2165ea20ba0d38c2fe41e6a26b4c assets/crysis/models/item/bismuth_fence.json
-9be0cff23d5273ae6e746717d34216842e7c03e4 assets/crysis/models/item/bismuth_hammer.json
-f786b35f6c9ef5db7701f288324252ef18dc82f1 assets/crysis/models/item/bismuth_hoe.json
-b8f89004ff4be567fe6d452ceef12eb0fc358c17 assets/crysis/models/item/bismuth_horse_armor.json
-8132fa7a0d9ddec02f952c7b907bdb5f8ac0cff4 assets/crysis/models/item/bismuth_pickaxe.json
-de6102115545d9d1a63ac76d7a863556c64128a0 assets/crysis/models/item/bismuth_shovel.json
-21c1a845375837cd93d3c0e088ffb083f7c67ef4 assets/crysis/models/item/bismuth_sword.json
-1c0be004002b86eaef444f5b2bacc866da7a3e6d assets/crysis/models/item/bismuth_wall.json
-f6d280e37346b21fc685bded171d0547744c5bf9 assets/crysis/models/item/bloodwood_sapling.json
-10434a01fbf32ccac2cc6cfe25456328b99e46c0 assets/crysis/models/item/frostfire_ice.json
-63ec6c618a3a23eab4cab9c52d7d3250de9b516e assets/crysis/models/item/gecko_spawn_egg.json
-7721cf8257dad5d6e9894e4060bff8867657ca52 assets/crysis/models/item/goji_berries.json
-4f770f7a885a5ee01a99d21aad13d6b4d9ef00ff assets/crysis/models/item/kaupen_armor_trim_smithing_template.json
+// 1.21.1	2025-07-02T07:37:03.633744641	Item Models: crysis
 e6ecda9467db36cc18950038c21bd354050af96d assets/crysis/models/item/nanosuit_boots.json
 4c5f2c0082b6742d100a01bb71accf2282bb977f assets/crysis/models/item/nanosuit_boots_amethyst_trim.json
 72e4b0fb639234dc2da0ffbd01135759b03b58e4 assets/crysis/models/item/nanosuit_boots_copper_trim.json
@@ -61,7 +43,3 @@ ab98e85af4e8f8950f42d2376af434bddc1c1844 assets/crysis/models/item/nanosuit_legg
 2eec77c4050de12e3882007b34080fb0a91f0877 assets/crysis/models/item/nanosuit_leggings_netherite_trim.json
 d0422ebbd68571d8d9bb11247fd894b6befcc724 assets/crysis/models/item/nanosuit_leggings_quartz_trim.json
 277f32fcaa62f3d0c8ac1eac456c10d7f722f8b0 assets/crysis/models/item/nanosuit_leggings_redstone_trim.json
-11dafde954be490c7697006a2a6c615cdef8c254 assets/crysis/models/item/radish.json
-f78a58a2f29b3874df23e38fa21a30c1108767b5 assets/crysis/models/item/radish_seeds.json
-ea4321588b9ca0f3e97d4d5da86b1a9c151e06bb assets/crysis/models/item/raw_bismuth.json
-8443f17b26a7fe7c4b9a9476f44b0b24060a8da5 assets/crysis/models/item/starlight_ashes.json

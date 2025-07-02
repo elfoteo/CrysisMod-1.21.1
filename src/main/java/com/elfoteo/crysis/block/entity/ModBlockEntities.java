@@ -9,10 +9,6 @@ import java.util.function.Supplier;
 public class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister
             .create(BuiltInRegistries.BLOCK_ENTITY_TYPE, CrysisMod.MOD_ID);
-    public static final Supplier<BlockEntityType<PedestalBlockEntity>> PEDESTAL_BE = BLOCK_ENTITIES
-            .register("pedestal_be", () -> BlockEntityType.Builder.of(
-                    PedestalBlockEntity::new, ModBlocks.PEDESTAL.get()).build(null));
-
     public static final Supplier<BlockEntityType<FlagBlockEntity>> FLAG_BE = BLOCK_ENTITIES
             .register("flag_be", () -> BlockEntityType.Builder.of(
                     FlagBlockEntity::new, ModBlocks.FLAG.get()).build(null));
@@ -20,10 +16,6 @@ public class ModBlockEntities {
     public static final Supplier<BlockEntityType<CreativeVendingMachineBlockEntity>> CREATIVE_VENDING_MACHINE_BE = BLOCK_ENTITIES
             .register("creative_vending_machine_be", () -> BlockEntityType.Builder.of(
                     CreativeVendingMachineBlockEntity::new, ModBlocks.CREATIVE_VENDING_MACHINE.get()).build(null));
-
-    public static final Supplier<BlockEntityType<GrowthChamberBlockEntity>> GROWTH_CHAMBER_BE = BLOCK_ENTITIES
-            .register("growth_chamber_be", () -> BlockEntityType.Builder.of(
-                    GrowthChamberBlockEntity::new, ModBlocks.GROWTH_CHAMBER.get()).build(null));
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);
     }

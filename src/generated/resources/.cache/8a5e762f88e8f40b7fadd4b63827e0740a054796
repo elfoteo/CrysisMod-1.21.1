@@ -1,6 +1,2 @@
-// 1.21.1	2025-05-25T17:23:06.557714816	Global Loot Modifiers : crysis
-2417ed2f15e001c34d3d4feac772140c426c391a data/crysis/loot_modifiers/berry_from_creeper.json
-87177b826eae637ed254ae201163f89fd5c8161f data/crysis/loot_modifiers/chisel_from_jungle_temple.json
-073afe49b9d888e1c39fc820688a974c0c2e722e data/crysis/loot_modifiers/radish_seeds_to_short_grass.json
-724cca23ca88576aa9b97f0afc61b89ef6ca9f50 data/crysis/loot_modifiers/radish_seeds_to_tall_grass.json
-44a77ce1596a1df680b2e7698450a7a252ea0d1e data/neoforge/loot_modifiers/global_loot_modifiers.json
+// 1.21.1	2025-07-02T07:37:03.632800018	Global Loot Modifiers : crysis
+bc4e4393d8ca5a7ad14dbefd9369539d91ea131a data/neoforge/loot_modifiers/global_loot_modifiers.json

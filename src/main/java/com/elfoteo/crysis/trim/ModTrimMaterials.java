@@ -16,8 +16,6 @@ public class ModTrimMaterials {
     public static final ResourceKey<TrimMaterial> BISMUTH = ResourceKey.create(Registries.TRIM_MATERIAL,
             ResourceLocation.fromNamespaceAndPath(CrysisMod.MOD_ID, "bismuth"));
     public static void bootstrap(BootstrapContext<TrimMaterial> context) {
-        register(context, BISMUTH, ModItems.BISMUTH.get(),
-                Style.EMPTY.withColor(TextColor.parseColor("#031cfc").getOrThrow()), 0.5F);
     }
     private static void register(BootstrapContext<TrimMaterial> context, ResourceKey<TrimMaterial> trimKey, Item item,
             Style style, float itemModelIndex) {

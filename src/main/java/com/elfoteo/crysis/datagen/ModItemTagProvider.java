@@ -19,29 +19,10 @@ public class ModItemTagProvider extends ItemTagsProvider {
     }
     @Override
     protected void addTags(HolderLookup.Provider provider) {
-        tag(ModTags.Items.TRANSFORMABLE_ITEMS)
-                .add(ModItems.BISMUTH.get())
-                .add(ModItems.RAW_BISMUTH.get())
-                .add(Items.COAL)
-                .add(Items.STICK)
-                .add(Items.COMPASS);
-        tag(ItemTags.SWORDS)
-                .add(ModItems.BISMUTH_SWORD.get());
         this.tag(ItemTags.TRIMMABLE_ARMOR)
                 .add(ModItems.NANOSUIT_HELMET.get())
                 .add(ModItems.NANOSUIT_CHESTPLATE.get())
                 .add(ModItems.NANOSUIT_LEGGINGS.get())
                 .add(ModItems.NANOSUIT_BOOTS.get());
-        this.tag(ItemTags.TRIM_MATERIALS)
-                .add(ModItems.BISMUTH.get());
-        this.tag(ItemTags.TRIM_TEMPLATES)
-                .add(ModItems.KAUPEN_SMITHING_TEMPLATE.get());
-        this.tag(ItemTags.LOGS_THAT_BURN)
-                .add(ModBlocks.BLOODWOOD_LOG.get().asItem())
-                .add(ModBlocks.BLOODWOOD_WOOD.get().asItem())
-                .add(ModBlocks.STRIPPED_BLOODWOOD_LOG.get().asItem())
-                .add(ModBlocks.STRIPPED_BLOODWOOD_WOOD.get().asItem());
-        this.tag(ItemTags.PLANKS)
-                .add(ModBlocks.BLOODWOOD_PLANKS.asItem());
     }
 }

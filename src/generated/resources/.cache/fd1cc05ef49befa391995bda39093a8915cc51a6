@@ -1,12 +1,2 @@
-// 1.21.1	2025-05-25T17:23:06.560155764	Tags for minecraft:item mod id crysis
-bce898ef6756eaf3e59722a8da0bab4457171986 data/crysis/tags/item/transformable_items.json
-ace525ba03ac4d5ffbb03b2d52e1e1d51d87b6a1 data/minecraft/tags/item/axes.json
-baebd2f34a69ed9578b475f32d8d0a2418f5bfec data/minecraft/tags/item/hoes.json
-08ef5edfa3db9db4699dbddd4f3e81da20e96e46 data/minecraft/tags/item/logs_that_burn.json
-7b8bc0d76b8bb3a47b98db64756f0543959701f5 data/minecraft/tags/item/pickaxes.json
-0031b5c846caec374956b31af8aae4bc2be3f763 data/minecraft/tags/item/planks.json
-fbc0e8641d97ad6ded998e7c2092c0b61357398f data/minecraft/tags/item/shovels.json
-1e44ab26f96bfe6d9f39827747530a29af0b35ae data/minecraft/tags/item/swords.json
-4ca476a357a4662c2a6dd2b48e3e96166745b4d7 data/minecraft/tags/item/trim_materials.json
-5d5987b773bdcf9b6145c3e2604d00adfe847697 data/minecraft/tags/item/trim_templates.json
+// 1.21.1	2025-07-02T07:37:03.634392874	Tags for minecraft:item mod id crysis
 36ec9a53f889133d5936852a48f16ce116f58faf data/minecraft/tags/item/trimmable_armor.json
