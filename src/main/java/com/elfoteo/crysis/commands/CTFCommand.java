@@ -26,7 +26,101 @@ public class CTFCommand {
         LiteralArgumentBuilder<CommandSourceStack> ctfCommand = Commands.literal("ctf")
                 .requires(source -> source.hasPermission(2))
 
-                // getScore
+                // score subcommand with get, set, add
+                .then(Commands.literal("score")
+                        // /ctf score get
+                        .then(Commands.literal("get")
+                                .executes(context -> {
+                                    ServerLevel overworld = context.getSource().getServer().overworld();
+                                    CTFData data = CTFData.getOrCreate(overworld);
+                                    int redScore = data.getRedScore();
+                                    int blueScore = data.getBlueScore();
+                                    context.getSource().sendSuccess(
+                                            () -> Component.literal("Red score: " + redScore + ", Blue score: " + blueScore),
+                                            true
+                                    );
+                                    return 1;
+                                })
+                        )
+                        // /ctf score set <team> <score>
+                        .then(Commands.literal("set")
+                                .then(Commands.argument("team", StringArgumentType.word())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"red", "blue"}, builder))
+                                        .then(Commands.argument("score", IntegerArgumentType.integer(0))
+                                                .executes(context -> {
+                                                    String team = StringArgumentType.getString(context, "team");
+                                                    int score = IntegerArgumentType.getInteger(context, "score");
+                                                    ServerLevel overworld = context.getSource().getServer().overworld();
+                                                    CTFData data = CTFData.getOrCreate(overworld);
+                                                    if (team.equalsIgnoreCase("red")) {
+                                                        data.setRedScore(score);
+                                                        context.getSource().sendSuccess(
+                                                                () -> Component.literal("Set red score to " + score),
+                                                                true
+                                                        );
+                                                    } else if (team.equalsIgnoreCase("blue")) {
+                                                        data.setBlueScore(score);
+                                                        context.getSource().sendSuccess(
+                                                                () -> Component.literal("Set blue score to " + score),
+                                                                true
+                                                        );
+                                                    } else {
+                                                        throw new SimpleCommandExceptionType(
+                                                                Component.literal("Invalid team. Must be red or blue.")
+                                                        ).create();
+                                                    }
+                                                    return 1;
+                                                })
+                                        )
+                                )
+                        )
+                        // /ctf score add <team> <delta>
+                        .then(Commands.literal("add")
+                                .then(Commands.argument("team", StringArgumentType.word())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"red", "blue"}, builder))
+                                        .then(Commands.argument("delta", IntegerArgumentType.integer())
+                                                .executes(context -> {
+                                                    String team = StringArgumentType.getString(context, "team");
+                                                    int delta = IntegerArgumentType.getInteger(context, "delta");
+                                                    ServerLevel overworld = context.getSource().getServer().overworld();
+                                                    CTFData data = CTFData.getOrCreate(overworld);
+                                                    if (team.equalsIgnoreCase("red")) {
+                                                        int newScore = data.getRedScore() + delta;
+                                                        data.setRedScore(newScore);
+                                                        context.getSource().sendSuccess(
+                                                                () -> Component.literal(
+                                                                        (delta >= 0
+                                                                                ? "Added " + delta + " to red score. "
+                                                                                : "Subtracted " + (-delta) + " from red score. ")
+                                                                                + "New red score: " + newScore
+                                                                ),
+                                                                true
+                                                        );
+                                                    } else if (team.equalsIgnoreCase("blue")) {
+                                                        int newScore = data.getBlueScore() + delta;
+                                                        data.setBlueScore(newScore);
+                                                        context.getSource().sendSuccess(
+                                                                () -> Component.literal(
+                                                                        (delta >= 0
+                                                                                ? "Added " + delta + " to blue score. "
+                                                                                : "Subtracted " + (-delta) + " from blue score. ")
+                                                                                + "New blue score: " + newScore
+                                                                ),
+                                                                true
+                                                        );
+                                                    } else {
+                                                        throw new SimpleCommandExceptionType(
+                                                                Component.literal("Invalid team. Must be red or blue.")
+                                                        ).create();
+                                                    }
+                                                    return 1;
+                                                })
+                                        )
+                                )
+                        )
+                )
+
+                // getScore (legacy)
                 .then(Commands.literal("getScore")
                         .executes(context -> {
                             ServerLevel overworld = context.getSource().getServer().overworld();
@@ -41,7 +135,7 @@ public class CTFCommand {
                         })
                 )
 
-                // setScore
+                // setScore (legacy)
                 .then(Commands.literal("setScore")
                         .then(Commands.argument("team", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(new String[]{"red", "blue"}, builder))
