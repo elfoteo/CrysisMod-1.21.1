@@ -19,25 +19,25 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @EventBusSubscriber(modid = CrysisMod.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
 public class RegenerationSystem {
     private static final float ENERGY_EPSILON = 0.0001f;
-    private static final int HEALTH_HIT_DELAY = 60;          // ticks (3s)
-    private static final int HEALTH_REGEN_INTERVAL_NANO = 20; // ticks (1s)
-    private static final int HEALTH_REGEN_INTERVAL_NO_NANO = 40; // ticks (2s)
-    private static final int HUNGER_REGEN_BASE = 100;        // ticks (30s)
+    private static final int HEALTH_HIT_DELAY = 60;
+    private static final int HEALTH_REGEN_INTERVAL_NANO = 20;
+    private static final int HEALTH_REGEN_INTERVAL_NO_NANO = 40;
+    private static final int HUNGER_REGEN_BASE = 100;
     private static final float HUNGER_SATURATION = 0.05f;
     private static final int MAX_FOOD_LEVEL = 20;
 
-    private static final Map<UUID, Float> previousEnergy = new HashMap<>();
-    private static final Map<UUID, Integer> ticksSinceEnergyUse = new HashMap<>();
-    private static final Map<UUID, Integer> lastDamageTick = new HashMap<>();
-    private static final Map<UUID, Vec3> previousPositions = new HashMap<>();
-    private static final Map<UUID, Integer> fullEnergyTicks = new HashMap<>();
+    private static final ConcurrentMap<UUID, Float> previousEnergy = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, Integer> ticksSinceEnergyUse = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, Integer> lastDamageTick = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, Vec3> previousPositions = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, Integer> fullEnergyTicks = new ConcurrentHashMap<>();
 
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
@@ -48,25 +48,20 @@ public class RegenerationSystem {
         int tick = player.tickCount;
         int suitMode = player.getData(ModAttachments.SUIT_MODE);
 
-        // Track damage timing
         int sinceLastHit = tick - lastDamageTick.getOrDefault(uuid, -1000);
 
-        // Health regeneration (only in ARMOR mode and if below max health)
         if (suitMode == SuitModes.ARMOR.get() && player.getHealth() < player.getMaxHealth()) {
-            float energy    = player.getData(ModAttachments.ENERGY);
-            int   maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
+            float energy = player.getData(ModAttachments.ENERGY);
+            int maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
 
             if (SkillData.isUnlocked(Skill.NANO_REGEN, player)) {
-                // Nano regen: >50% energy, no damage in last 60 ticks, once per second
                 if (energy / maxEnergy > 0.5f
                         && sinceLastHit >= HEALTH_HIT_DELAY
                         && tick % HEALTH_REGEN_INTERVAL_NANO == 0) {
-
                     player.heal(1.0f);
                     spawnHeartParticle(player);
                 }
             } else {
-                // No nano upgrade: must have max energy held, no damage in last 60 ticks, once per 2 seconds
                 if (energy >= maxEnergy - ENERGY_EPSILON) {
                     fullEnergyTicks.merge(uuid, 1, Integer::sum);
                 } else {
@@ -76,20 +71,18 @@ public class RegenerationSystem {
                 if (fullEnergyTicks.getOrDefault(uuid, 0) >= 1
                         && sinceLastHit >= HEALTH_HIT_DELAY
                         && tick % HEALTH_REGEN_INTERVAL_NO_NANO == 0) {
-
                     player.heal(1.0f);
                     spawnHeartParticle(player);
                 }
             }
         }
 
-        // Hunger regeneration if at full health
         if (player.getHealth() >= player.getMaxHealth()) {
             int hungerInterval = HUNGER_REGEN_BASE;
             float saturation = HUNGER_SATURATION;
             if (!SkillData.isUnlocked(Skill.NANO_REGEN, player)) {
-                hungerInterval *= 2; // double cooldown if no nano regen unlocked
-                saturation *= 2; // double cooldown if no nano regen unlocked
+                hungerInterval *= 2;
+                saturation *= 2;
             }
 
             if (player.getFoodData().getFoodLevel() < MAX_FOOD_LEVEL
@@ -98,15 +91,14 @@ public class RegenerationSystem {
             }
         }
 
-        // Energy regeneration and tracking (only in ARMOR mode)
         if (suitMode != SuitModes.ARMOR.get()) {
             clearTrackers(uuid);
             return;
         }
 
-        float energy    = player.getData(ModAttachments.ENERGY);
-        int   maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
-        float maxRegen  = player.getData(ModAttachments.MAX_ENERGY_REGEN) * 2;
+        float energy = player.getData(ModAttachments.ENERGY);
+        int maxEnergy = player.getData(ModAttachments.MAX_ENERGY);
+        float maxRegen = player.getData(ModAttachments.MAX_ENERGY_REGEN) * 2;
 
         float lastEnergy = previousEnergy.getOrDefault(uuid, energy);
         if (lastEnergy - energy > ENERGY_EPSILON) {
