@@ -28,12 +28,11 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
-import java.nio.FloatBuffer;
 import java.util.*;
 
 /**
  * Manages entity data for rendering, handling prioritization and sending entity positions to shaders.
- * Sends up to 170 entities per frame packed into a 512‑float array, with stable round‑robin ordering.
+ * Sends up to 85 entities per frame packed into a 256‑float array, with stable round‑robin ordering.
  */
 @EventBusSubscriber(modid = CrysisMod.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public class TrailTextureManager {
@@ -51,11 +50,12 @@ public class TrailTextureManager {
     private static final double MEDIUM_DISTANCE = 128.0;
 
     // Maximums
-    private static final int MAX_ENTITIES = 170;
-    private static final int DATA_ARRAY_SIZE = 512; // floats
+    private static final int DATA_ARRAY_SIZE = 256; // floats
+    private static final int MAX_ENTITIES = DATA_ARRAY_SIZE / 3;
 
-    // Working lists
+    // Working lists and buffers
     private static final List<Entity> combinedEntities = new ArrayList<>();
+    private static final float[] entityDataArray = new float[DATA_ARRAY_SIZE];
     private static int roundRobinIndex = 0;
 
     private TrailTextureManager() {
@@ -125,25 +125,27 @@ public class TrailTextureManager {
         Camera cam = mc.gameRenderer.getMainCamera();
         Vec3 pos = cam.getPosition();
 
-        double hw = TEXTURE_WIDTH/2.0, hh = TEXTURE_HEIGHT/2.0, hd = TEXTURE_DEPTH/2.0;
+        double hw = TEXTURE_WIDTH / 2.0, hh = TEXTURE_HEIGHT / 2.0, hd = TEXTURE_DEPTH / 2.0;
         AABB bounds = new AABB(
                 pos.x - hw, pos.y - hh, pos.z - hd,
                 pos.x + hw, pos.y + hh, pos.z + hd
         );
 
-        // collect & categorize
-        List<Entity> near = new ArrayList<>();
-        List<Entity> med  = new ArrayList<>();
-        List<Entity> far  = new ArrayList<>();
+        // Precompute squared distances
+        double nearbySq = NEARBY_DISTANCE * NEARBY_DISTANCE;
+        double mediumSq = MEDIUM_DISTANCE * MEDIUM_DISTANCE;
 
-        mc.level.getEntities(null, bounds).stream()
-                .filter(TrailTextureManager::emitsHeat)
-                .forEach(e -> {
-                    double d = Math.sqrt(e.distanceToSqr(pos));
-                    if (d < NEARBY_DISTANCE) near.add(e);
-                    else if (d < MEDIUM_DISTANCE) med.add(e);
-                    else far.add(e);
-                });
+        // Collect & categorize
+        List<Entity> near = new ArrayList<>();
+        List<Entity> med = new ArrayList<>();
+        List<Entity> far = new ArrayList<>();
+
+        for (Entity e : mc.level.getEntities((Entity) null, bounds, TrailTextureManager::emitsHeat)) {
+            double d2 = e.distanceToSqr(pos);
+            if (d2 < nearbySq) near.add(e);
+            else if (d2 < mediumSq) med.add(e);
+            else far.add(e);
+        }
 
         combinedEntities.addAll(near);
         combinedEntities.addAll(med);
@@ -158,7 +160,7 @@ public class TrailTextureManager {
         Camera cam = mc.gameRenderer.getMainCamera();
         Vec3 camPos = cam.getPosition();
 
-        // build frustum
+        // Build frustum
         Quaternionf q = cam.rotation().conjugate(new Quaternionf());
         Matrix4f view = new Matrix4f().rotation(q);
         float partial = mc.getTimer().getGameTimeDeltaPartialTick(true);
@@ -166,10 +168,10 @@ public class TrailTextureManager {
         Frustum frustum = new Frustum(view, mc.gameRenderer.getProjectionMatrix(Math.max(fov, mc.options.fov().get())));
         frustum.prepare(camPos.x, camPos.y, camPos.z);
 
-        // round‐robin select
-        FloatBuffer buf = FloatBuffer.allocate(DATA_ARRAY_SIZE);
+        // Round-robin select
         int sent = 0, checked = 0;
         int total = combinedEntities.size();
+        int index = 0;
 
         while (sent < MAX_ENTITIES && checked < total) {
             Entity e = combinedEntities.get(roundRobinIndex);
@@ -177,24 +179,30 @@ public class TrailTextureManager {
             checked++;
             if (!isVisible(e, frustum)) continue;
             Vec3 p = e.position();
-            buf.put((float)(p.x - camPos.x))
-                    .put((float)(p.y - camPos.y + e.getBbHeight()/2f))
-                    .put((float)(p.z - camPos.z));
+            entityDataArray[index++] = (float) (p.x - camPos.x);
+            entityDataArray[index++] = (float) (p.y - camPos.y + e.getBbHeight() / 2f);
+            entityDataArray[index++] = (float) (p.z - camPos.z);
             sent++;
         }
-        // zero‐pad rest
-        while (buf.position() < DATA_ARRAY_SIZE) {
-            buf.put(0f);
+        // Zero-pad rest
+        while (index < DATA_ARRAY_SIZE) {
+            entityDataArray[index++] = 0f;
         }
 
-        // upload uniforms
+        // Upload uniforms
         var uCount = shader.getUniform("EntityCount");
-        if (uCount != null) { uCount.set(sent); uCount.upload(); }
+        if (uCount != null) {
+            uCount.set(sent);
+            uCount.upload();
+        }
         var uData = shader.getUniform("EntityData");
-        if (uData != null) { uData.set(buf.array()); uData.upload(); }
-        var uCam  = shader.getUniform("CameraPos");
+        if (uData != null) {
+            uData.set(entityDataArray);
+            uData.upload();
+        }
+        var uCam = shader.getUniform("CameraPos");
         if (uCam != null) {
-            uCam.set((float)camPos.x, (float)camPos.y, (float)camPos.z);
+            uCam.set((float) camPos.x, (float) camPos.y, (float) camPos.z);
             uCam.upload();
         }
         var uDt = shader.getUniform("u_deltaTime");

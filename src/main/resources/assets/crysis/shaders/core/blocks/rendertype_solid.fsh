@@ -7,7 +7,7 @@ uniform vec4     ColorModulator;
 uniform float    FogStart;
 uniform float    FogEnd;
 uniform vec4     FogColor;
-uniform float    EntityData[512];
+uniform float    EntityData[256];
 uniform int      EntityCount;
 uniform vec3     CameraPos;
 
@@ -51,8 +51,8 @@ float computeEntityHeatAt(vec3 pos) {
         EntityData[b + 2]
         );
         vec3 d = pos - ep;
-        float distance = length(d);
-        float t = exp(-pow(distance / 2.5, 4.0));
+        float distSq = dot(d, d);
+        float t = exp(-distSq * distSq / 39.06); // ≈ (2.5^4)
         best = max(best, t);
     }
     return best;
